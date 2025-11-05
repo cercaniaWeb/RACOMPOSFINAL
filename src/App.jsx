@@ -33,7 +33,7 @@ const App = () => {
   }, [syncPendingOperations]);
 
   return (
-    <div className="min-h-screen w-full bg-[#0f0f0f]">
+    <div className="min-h-screen w-full bg-[#1D1D27]">
       <div className="flex flex-col h-screen">
         <Router />
       </div>

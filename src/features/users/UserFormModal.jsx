@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import useAppStore from '../../store/useAppStore';
-import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
 
-const UserFormModal = ({ user, onClose }) => {
+const UserFormModal = ({ user, onClose, onSuccess }) => {
   const { addUser, updateUser, stores } = useAppStore();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    role: 'cashier',
-    storeId: null,
+    role: 'cajera',
+    storeId: ''
   });
 
   useEffect(() => {
@@ -18,111 +17,162 @@ const UserFormModal = ({ user, onClose }) => {
       setFormData({
         name: user.name || '',
         email: user.email || '',
-        password: '', // Never pre-fill password for security
-        role: user.role || 'cashier',
-        storeId: user.storeId || null,
+        password: '',
+        role: user.role || 'cajera',
+        storeId: user.storeId || ''
       });
     } else {
       setFormData({
         name: '',
         email: '',
         password: '',
-        role: 'cashier',
-        storeId: null,
+        role: 'cajera',
+        storeId: ''
       });
     }
   }, [user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (user) {
-      // Update user
-      updateUser(user.uid, formData);
-    } else {
-      // Add new user
-      addUser(formData);
+    
+    const userData = {
+      ...formData
+    };
+    
+    // Only include password if it's a new user or a new password is provided
+    if (!user && formData.password) {
+      userData.password = formData.password;
+    } else if (user && formData.password) {
+      // For existing users, only update password if a new one is provided
+      userData.password = formData.password;
     }
-    onClose();
+    
+    try {
+      if (user) {
+        // Update existing user
+        await updateUser(user.id, userData);
+      } else {
+        // Add new user
+        await addUser(userData);
+      }
+      onSuccess && onSuccess();
+      onClose();
+    } catch (error) {
+      console.error('Error saving user:', error);
+      alert('Error al guardar el usuario: ' + error.message);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 dark:text-white">
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
-        <Input
-          id="name"
-          name="name"
-          type="text"
-          value={formData.name}
-          onChange={handleChange}
-          required
-          className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-        />
-      </div>
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          value={formData.email}
-          onChange={handleChange}
-          required
-          className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-        />
-      </div>
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña {user ? '(dejar en blanco para no cambiar)' : ''}</label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          value={formData.password}
-          onChange={handleChange}
-          {...(!user && { required: true })} // Required only for new users
-          className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-        />
-      </div>
-      <div>
-        <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Rol</label>
-        <select
-          id="role"
-          name="role"
-          value={formData.role}
-          onChange={handleChange}
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          required
+    <div className="p-6 bg-[#282837] rounded-xl border border-[#3a3a4a]">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-bold text-[#F0F0F0]">
+          {user ? 'Editar Usuario' : 'Agregar Usuario'}
+        </h3>
+        <button 
+          onClick={onClose}
+          className="text-[#a0a0b0] hover:text-[#F0F0F0]"
         >
-          <option value="admin" className="dark:bg-gray-700 dark:text-white">Admin</option>
-          <option value="gerente" className="dark:bg-gray-700 dark:text-white">Gerente</option>
-          <option value="cashier" className="dark:bg-gray-700 dark:text-white">Cajero</option>
-          <option value="bodeguero" className="dark:bg-gray-700 dark:text-white">Bodeguero</option>
-        </select>
+          <X className="w-5 h-5" />
+        </button>
       </div>
-      <div>
-        <label htmlFor="storeId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tienda Asignada</label>
-        <select
-          id="storeId"
-          name="storeId"
-          value={formData.storeId || ''}
-          onChange={handleChange}
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-        >
-          <option value="" className="dark:bg-gray-700 dark:text-white">Ninguna (para Admin/Gerente sin tienda específica)</option>
-          {stores.map(store => (
-            <option key={store.id} value={store.id} className="dark:bg-gray-700 dark:text-white">{store.name}</option>
-          ))}
-        </select>
-      </div>
-      <Button type="submit" className="w-full bg-indigo-600 text-white hover:bg-indigo-700">
-        {user ? "Guardar Cambios" : "Añadir Usuario"}
-      </Button>
-    </form>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-[#a0a0b0] mb-1">Nombre *</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            required
+            className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-[#a0a0b0] mb-1">Email *</label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-[#a0a0b0] mb-1">
+            {user ? 'Nueva Contraseña (opcional)' : 'Contraseña *'}
+          </label>
+          <input
+            type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none"
+            placeholder={user ? "Dejar vacío para mantener contraseña actual" : "Contraseña del usuario"}
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-[#a0a0b0] mb-1">Rol *</label>
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            required
+            className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none"
+          >
+            <option value="cajera">Cajera</option>
+            <option value="gerente">Gerente</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-[#a0a0b0] mb-1">Tienda</label>
+          <select
+            name="storeId"
+            value={formData.storeId}
+            onChange={handleChange}
+            className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none"
+          >
+            <option value="">Selecciona una tienda</option>
+            {stores.map(store => (
+              <option key={store.id} value={store.id}>
+                {store.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div className="flex justify-end space-x-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="bg-[#3a3a4a] text-[#F0F0F0] hover:bg-[#4a4a5a] py-2 px-4 rounded-lg"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            className="bg-[#8A2BE2] text-white hover:bg-[#7a1bd2] py-2 px-4 rounded-lg"
+          >
+            {user ? 'Actualizar Usuario' : 'Agregar Usuario'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 };
 

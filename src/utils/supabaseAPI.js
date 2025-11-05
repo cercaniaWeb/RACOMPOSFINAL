@@ -156,28 +156,72 @@ export const deleteProduct = async (id) => {
 
 // Funciones para categorías
 export const getCategories = async () => {
-  const { data, error } = await supabase
+  // First get all categories
+  const { data: allCategories, error: categoriesError } = await supabase
     .from('categories')
     .select('*')
     .order('name', { ascending: true });
 
-  if (error) {
-    console.error('Error obteniendo categorías:', error);
+  if (categoriesError) {
+    console.error('Error obteniendo categorías:', categoriesError);
     return [];
   }
 
-  return data;
+  // Build the hierarchical structure
+  const categoriesWithSubcategories = allCategories.map(category => {
+    // Convert snake_case to camelCase for consistency
+    return {
+      id: category.id,
+      name: category.name,
+      parentId: category.parent_id,
+      parent_id: category.parent_id,
+      created_at: category.created_at,
+      updated_at: category.updated_at
+    };
+  });
+
+  // Build the tree structure
+  const categoriesTree = [];
+  const categoryMap = {};
+
+  // Create a map of categories for easier lookup
+  categoriesWithSubcategories.forEach(cat => {
+    categoryMap[cat.id] = { ...cat, subcategories: [] };
+  });
+
+  // Build the tree
+  categoriesWithSubcategories.forEach(cat => {
+    if (cat.parentId) {
+      // This is a subcategory
+      const parent = categoryMap[cat.parentId];
+      if (parent) {
+        parent.subcategories.push(categoryMap[cat.id]);
+      }
+    } else {
+      // This is a main category
+      categoriesTree.push(categoryMap[cat.id]);
+    }
+  });
+
+  return categoriesTree;
 };
 
 export const addCategory = async (categoryData) => {
+  // Convert camelCase to snake_case for database
+  const dbData = { ...categoryData };
+  if ('parentId' in dbData) {
+    dbData.parent_id = dbData.parentId;
+    delete dbData.parentId;
+  }
+
   const { data, error } = await supabase
     .from('categories')
     .insert([{
-      ...categoryData,
+      ...dbData,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }])
-    .select()
+    .select('id')
     .single();
 
   if (error) {
@@ -189,10 +233,17 @@ export const addCategory = async (categoryData) => {
 };
 
 export const updateCategory = async (id, categoryData) => {
+  // Convert camelCase to snake_case for database
+  const dbData = { ...categoryData };
+  if ('parentId' in dbData) {
+    dbData.parent_id = dbData.parentId;
+    delete dbData.parentId;
+  }
+
   const { error } = await supabase
     .from('categories')
     .update({
-      ...categoryData,
+      ...dbData,
       updated_at: new Date().toISOString()
     })
     .eq('id', id);
@@ -316,6 +367,33 @@ export const addInventoryBatch = async (inventoryData) => {
   return data.id;
 };
 
+export const updateInventoryBatch = async (id, inventoryData) => {
+  const { error } = await supabase
+    .from('inventory_batches')
+    .update({
+      ...inventoryData,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error actualizando lote de inventario:', error);
+    throw new Error(error.message);
+  }
+};
+
+export const deleteInventoryBatch = async (id) => {
+  const { error } = await supabase
+    .from('inventory_batches')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error eliminando lote de inventario:', error);
+    throw new Error(error.message);
+  }
+};
+
 // Funciones para ventas
 export const getSales = async () => {
   const { data, error } = await supabase
@@ -428,6 +506,113 @@ export const getExpenses = async () => {
   }
 
   return data;
+};
+
+// Funciones para reportes de ventas
+export const getSalesReport = async (startDate, endDate, storeId = null, reportType = 'daily') => {
+  let query = supabase
+    .from('sales')
+    .select('*')
+    .gte('date', startDate)
+    .lte('date', endDate);
+
+  if (storeId) {
+    query = query.eq('storeId', storeId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error obteniendo reporte de ventas:', error);
+    return null;
+  }
+
+  // Procesar los datos según el tipo de reporte
+  const processedData = processSalesReportData(data, reportType, startDate, endDate);
+
+  return processedData;
+};
+
+// Función auxiliar para procesar los datos del reporte
+const processSalesReportData = (sales, reportType, startDate, endDate) => {
+  if (!sales || sales.length === 0) {
+    return {
+      totalSales: 0,
+      totalTransactions: 0,
+      avgTicket: 0,
+      profitMargin: 0,
+      sales: [],
+      dateRange: { startDate, endDate }
+    };
+  }
+
+  // Agrupar ventas por período según reportType
+  const groupedSales = {};
+  
+  sales.forEach(sale => {
+    // Parsear la fecha de la venta y formatear según el tipo de agrupamiento
+    const saleDate = new Date(sale.date);
+    let periodKey;
+    
+    switch(reportType) {
+      case 'daily':
+        periodKey = saleDate.toISOString().split('T')[0];
+        break;
+      case 'weekly':
+        // Calcular la semana del año
+        const startOfWeek = new Date(saleDate);
+        startOfWeek.setDate(saleDate.getDate() - saleDate.getDay()); // Lunes de la semana
+        periodKey = startOfWeek.toISOString().split('T')[0];
+        break;
+      case 'monthly':
+        periodKey = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
+        break;
+      default:
+        periodKey = saleDate.toISOString().split('T')[0];
+    }
+    
+    if (!groupedSales[periodKey]) {
+      groupedSales[periodKey] = {
+        date: periodKey,
+        store: sale.storeId || 'Desconocido',
+        transactions: 0,
+        salesAmount: 0,
+        costAmount: 0,
+        profitAmount: 0,
+        profitMargin: 0
+      };
+    }
+    
+    // Asumimos que tenemos información de productos en cada línea de venta para calcular costos
+    // Por ahora usamos el total como proxy
+    groupedSales[periodKey].transactions += 1;
+    groupedSales[periodKey].salesAmount += sale.total || 0;
+    
+    // Estos valores requerirían más información detallada de los productos vendidos
+    // Por ahora usamos cálculos estimados
+    groupedSales[periodKey].costAmount += sale.total ? sale.total * 0.7 : 0; // Suponiendo un 70% de costo
+    groupedSales[periodKey].profitAmount += sale.total ? sale.total * 0.3 : 0; // Suponiendo un 30% de ganancia
+  });
+  
+  // Calcular el margen de ganancia para cada período
+  Object.values(groupedSales).forEach(sale => {
+    sale.profitMargin = sale.salesAmount > 0 ? (sale.profitAmount / sale.salesAmount) * 100 : 0;
+  });
+
+  // Calcular métricas generales
+  const totalSales = Object.values(groupedSales).reduce((sum, s) => sum + s.salesAmount, 0);
+  const totalTransactions = Object.values(groupedSales).reduce((sum, s) => sum + s.transactions, 0);
+  const avgTicket = totalTransactions > 0 ? totalSales / totalTransactions : 0;
+  const overallProfitMargin = totalSales > 0 ? (Object.values(groupedSales).reduce((sum, s) => sum + s.profitAmount, 0) / totalSales) * 100 : 0;
+
+  return {
+    totalSales,
+    totalTransactions,
+    avgTicket,
+    profitMargin: overallProfitMargin,
+    sales: Object.values(groupedSales).sort((a, b) => new Date(a.date) - new Date(b.date)),
+    dateRange: { startDate, endDate }
+  };
 };
 
 // Funciones para cierres de caja

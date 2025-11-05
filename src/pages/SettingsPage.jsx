@@ -1,101 +1,194 @@
-
 import React, { useState } from 'react';
-import Button from '../components/ui/Button';
-import Modal from '../components/ui/Modal';
-import Input from '../components/ui/Input';
-import useAppStore from '../store/useAppStore';
-import TicketDesignModal from '../features/pos/TicketDesignModal';
+import { Store, Printer, Shield, ToggleRight, ToggleLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import CategoryManagementModal from '../features/products/CategoryManagementModal';
-import ReminderFormModal from '../features/settings/ReminderFormModal';
-import { Trash } from 'lucide-react';
+import Modal from '../components/ui/Modal';
 
 const SettingsPage = () => {
-  const { alertSettings, ticketSettings, updateAlertSettings, updateTicketSettings, reminders, markReminderAsConcluded } = useAppStore();
-  const [isTicketDesignModalOpen, setIsTicketDesignModalOpen] = useState(false);
-  const [isCategoryManagementModalOpen, setIsCategoryManagementModalOpen] = useState(false);
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  const [commissionRate, setCommissionRate] = useState(alertSettings.cardCommissionRate * 100);
-  const [appLogo, setAppLogo] = useState(ticketSettings.appLogoUrl);
+  const navigate = useNavigate();
+  const [configSection, setConfigSection] = useState('store');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
-  const handleSaveSettings = () => {
-    updateAlertSettings({ cardCommissionRate: commissionRate / 100 });
-    updateTicketSettings({ appLogoUrl: appLogo });
+  // Mock printers
+  const [printers, setPrinters] = useState([
+    { id: 1, name: 'Impresora Principal', model: 'EPSON TM-T20', enabled: true },
+    { id: 2, name: 'Impresora de Etiquetas', model: 'ZEBRA GK420D', enabled: false }
+  ]);
+
+  // Mock permissions
+  const [permissions, setPermissions] = useState([
+    { id: 1, name: 'Acceso a Reportes', enabled: true },
+    { id: 2, name: 'Gestión de Inventario', enabled: true },
+    { id: 3, name: 'Configuración del Sistema', enabled: false },
+    { id: 4, name: 'Gestión de Usuarios', enabled: false }
+  ]);
+
+  const togglePrinter = (id) => {
+    setPrinters(printers.map(printer => 
+      printer.id === id ? { ...printer, enabled: !printer.enabled } : printer
+    ));
+  };
+
+  const togglePermission = (id) => {
+    setPermissions(permissions.map(permission => 
+      permission.id === id ? { ...permission, enabled: !permission.enabled } : permission
+    ));
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Configuración</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Button onClick={() => setIsTicketDesignModalOpen(true)} className="px-4 py-2 border text-gray-700 font-medium hover:bg-gray-50 flex items-center space-x-2">
-          <span>Editar Diseño de Ticket</span>
-        </Button>
-        <Button onClick={() => setIsCategoryManagementModalOpen(true)} className="px-4 py-2 border text-gray-700 font-medium hover:bg-gray-50 flex items-center space-x-2">
-          <span>Gestionar Categorías</span>
-        </Button>
-        <Button onClick={() => setIsReminderModalOpen(true)} className="px-4 py-2 border text-gray-700 font-medium hover:bg-gray-50 flex items-center space-x-2">
-          <span>Crear Recordatorio</span>
-        </Button>
-      </div>
-
-      <div className="mt-8 space-y-4">
-        <h2 className="text-xl font-bold">Configuración General</h2>
-        <div>
-          <label htmlFor="commissionRate" className="block text-sm font-medium text-gray-700">Comisión por Tarjeta (%)</label>
-          <Input
-            id="commissionRate"
-            name="commissionRate"
-            type="number"
-            value={commissionRate}
-            onChange={(e) => setCommissionRate(parseFloat(e.target.value) || 0)}
-            step="0.01"
-          />
+    <div className="flex-1 p-6 bg-[#1D1D27]">
+      <h2 className="text-2xl font-bold text-[#F0F0F0] mb-6">Configuración</h2>
+      
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Config Navigation */}
+        <div className="lg:w-64">
+          <div className="bg-[#282837] rounded-xl border border-[#3a3a4a] p-4">
+            <nav className="space-y-2">
+              {[
+                { id: 'store', name: 'Configuración de Tienda', icon: Store },
+                { id: 'printer', name: 'Impresoras', icon: Printer },
+                { id: 'categories', name: 'Categorías', icon: Store },
+                { id: 'permissions', name: 'Permisos', icon: Shield }
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setConfigSection(item.id)}
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                      configSection === item.id
+                        ? 'text-[#8A2BE2] bg-[#3a3a4a]'
+                        : 'text-[#a0a0b0] hover:text-[#F0F0F0] hover:bg-[#3a3a4a]'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="font-medium">{item.name}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
         </div>
-        <div>
-          <label htmlFor="appLogo" className="block text-sm font-medium text-gray-700">URL del Logo de la Aplicación</label>
-          <Input
-            id="appLogo"
-            name="appLogo"
-            type="text"
-            value={appLogo}
-            onChange={(e) => setAppLogo(e.target.value)}
-          />
-        </div>
-        <Button onClick={handleSaveSettings} className="bg-indigo-600 text-white hover:bg-indigo-700">
-          Guardar Configuración General
-        </Button>
-      </div>
 
-      <div className="mt-8 space-y-4">
-        <h2 className="text-xl font-bold">Recordatorios Activos</h2>
-        {reminders.filter(rem => !rem.isConcluded).length === 0 ? (
-          <p className="text-gray-500">No hay recordatorios activos.</p>
-        ) : (
-          <ul className="space-y-2">
-            {reminders.filter(rem => !rem.isConcluded).map(rem => (
-              <li key={rem.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-md">
-                <div>
-                  <p className="font-medium">{rem.title} (Vence: {new Date(rem.dueDate).toLocaleDateString()})</p>
-                  <p className="text-sm text-gray-600">{rem.description}</p>
+        {/* Config Content */}
+        <div className="flex-1">
+          <div className="bg-[#282837] rounded-xl border border-[#3a3a4a] p-6">
+            {configSection === 'store' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-bold text-[#F0F0F0]">Configuración de Tienda</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[#a0a0b0] mb-2">Nombre de la Tienda</label>
+                    <input 
+                      type="text" 
+                      defaultValue="RACOM POS Central"
+                      className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#a0a0b0] mb-2">Dirección</label>
+                    <input 
+                      type="text" 
+                      defaultValue="Av. Principal 123"
+                      className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#a0a0b0] mb-2">Teléfono</label>
+                    <input 
+                      type="text" 
+                      defaultValue="+1 234 567 890"
+                      className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#F0F0F0]">Modo Activo</span>
+                    <button className="text-[#8A2BE2]">
+                      <ToggleRight className="w-6 h-6" />
+                    </button>
+                  </div>
                 </div>
-                <Button onClick={() => markReminderAsConcluded(rem.id)} className="text-green-600 hover:text-green-900">
-                  Marcar como Concluido
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
+              </div>
+            )}
+
+            {configSection === 'printer' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-bold text-[#F0F0F0]">Configuración de Impresoras</h3>
+                <div className="space-y-4">
+                  {printers.map((printer) => (
+                    <div key={printer.id} className="flex items-center justify-between p-4 bg-[#1D1D27] rounded-lg border border-[#3a3a4a]">
+                      <div>
+                        <h4 className="text-[#F0F0F0] font-medium">{printer.name}</h4>
+                        <p className="text-[#a0a0b0] text-sm">{printer.model}</p>
+                      </div>
+                      <button 
+                        onClick={() => togglePrinter(printer.id)}
+                        className={printer.enabled ? "text-[#8A2BE2]" : "text-[#a0a0b0]"}
+                      >
+                        {printer.enabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {configSection === 'categories' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-bold text-[#F0F0F0]">Gestión de Categorías</h3>
+                <div className="bg-[#1D1D27] rounded-lg p-4 border border-[#3a3a4a]">
+                  <p className="text-[#a0a0b0] mb-4">
+                    Aquí puedes gestionar las categorías y subcategorías de productos para organizar tu inventario.
+                  </p>
+                  <button 
+                    className="bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+                    onClick={() => setShowCategoryModal(true)}
+                  >
+                    Gestión de Categorías
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {configSection === 'permissions' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-bold text-[#F0F0F0]">Permisos de Usuarios</h3>
+                <div className="space-y-4">
+                  {permissions.map((permission) => (
+                    <div key={permission.id} className="flex items-center justify-between p-4 bg-[#1D1D27] rounded-lg border border-[#3a3a4a]">
+                      <span className="text-[#F0F0F0]">{permission.name}</span>
+                      <button 
+                        onClick={() => togglePermission(permission.id)}
+                        className={permission.enabled ? "text-[#8A2BE2]" : "text-[#a0a0b0]"}
+                      >
+                        {permission.enabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-8 pt-6 border-t border-[#3a3a4a]">
+              <button className="bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Modal isOpen={isTicketDesignModalOpen} onClose={() => setIsTicketDesignModalOpen(false)} title="Editar Diseño de Ticket">
-        <TicketDesignModal onClose={() => setIsTicketDesignModalOpen(false)} />
-      </Modal>
-
-      <Modal isOpen={isCategoryManagementModalOpen} onClose={() => setIsCategoryManagementModalOpen(false)} title="Gestionar Categorías">
-        <CategoryManagementModal onClose={() => setIsCategoryManagementModalOpen(false)} />
-      </Modal>
-
-      <Modal isOpen={isReminderModalOpen} onClose={() => setIsReminderModalOpen(false)} title="Crear Nuevo Recordatorio">
-        <ReminderFormModal onClose={() => setIsReminderModalOpen(false)} />
+      {/* Category Management Modal */}
+      <Modal 
+        isOpen={showCategoryModal}
+        title="Gestión de Categorías" 
+        onClose={() => setShowCategoryModal(false)}
+      >
+        <div className="max-h-[70vh] overflow-y-auto">
+          <CategoryManagementModal 
+            onClose={() => setShowCategoryModal(false)} 
+          />
+        </div>
       </Modal>
     </div>
   );

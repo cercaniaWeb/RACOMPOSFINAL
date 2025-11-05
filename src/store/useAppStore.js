@@ -15,6 +15,8 @@ import {
   getStores,
   getInventoryBatches,
   addInventoryBatch,
+  updateInventoryBatch,
+  deleteInventoryBatch,
   getSales,
   addSale,
   getClients,
@@ -23,6 +25,7 @@ import {
   getShoppingList,
   getExpenses,
   getCashClosings,
+  getSalesReport,
   initializeSupabaseCollections
 } from '../utils/supabaseAPI';
 import offlineStorage from '../utils/offlineStorage';
@@ -56,6 +59,9 @@ const useAppStore = create((set, get) => ({
   expenses: [],
   shoppingList: [], // New state for shopping list
   cashClosings: [],
+  
+  // Reportes
+  salesReport: null,
 
   // Loading state management
   setLoading: (key, value) => set(state => ({
@@ -153,22 +159,55 @@ const useAppStore = create((set, get) => ({
       // Try to load from network first if online
       if (get().isOnline) {
         const products = await getProducts();
-        set({ products });
+        
+        // Asegurar consistencia en los nombres de campos
+        const mappedProducts = products.map(product => {
+          return {
+            ...product,
+            // Mapear campos de categoría para consistencia
+            categoryId: product.category_id || product.categoryId,
+            subcategoryId: product.subcategory_id || product.subcategoryId,
+            // Mapear otros campos posibles
+            name: product.name || product.nombre || product.productName,
+            description: product.description || product.descripcion,
+            price: product.price || product.precio || 0,
+            cost: product.cost || product.costo || 0,
+            sku: product.sku || product.SKU,
+            barcode: product.barcode || product.codigo_barras,
+            unit: product.unit || product.unidad || product.unitOfMeasure,
+            // Mantener campos originales para compatibilidad
+            category_id: product.category_id || product.categoryId,
+            subcategory_id: product.subcategory_id || product.subcategoryId
+          };
+        });
+        
+        set({ products: mappedProducts });
         // Store in offline storage for later use
-        await Promise.all(products.map(product => 
+        await Promise.all(mappedProducts.map(product => 
           offlineStorage.updateData('products', product.id, product)
         ));
       } else {
         // Load from offline storage
         const offlineProducts = await offlineStorage.getAllData('products');
-        set({ products: offlineProducts });
+        // Asegurar consistencia en los datos offline también
+        const mappedOfflineProducts = offlineProducts.map(product => ({
+          ...product,
+          categoryId: product.category_id || product.categoryId,
+          subcategoryId: product.subcategory_id || product.subcategoryId
+        }));
+        set({ products: mappedOfflineProducts });
       }
     } catch (error) {
       console.error("Error loading products:", error);
       // Fallback to offline storage if network failed
       try {
         const offlineProducts = await offlineStorage.getAllData('products');
-        set({ products: offlineProducts });
+        const mappedOfflineProducts = offlineProducts.map(product => ({
+          ...product,
+          categoryId: product.category_id || product.categoryId,
+          subcategoryId: product.subcategory_id || product.subcategoryId
+        }));
+        set({ products: mappedOfflineProducts });
       } catch (offlineError) {
         console.error("Error loading products from offline storage:", offlineError);
       }
@@ -263,20 +302,55 @@ const useAppStore = create((set, get) => ({
     try {
       if (get().isOnline) {
         const inventoryBatches = await getInventoryBatches();
-        set({ inventoryBatches });
-        // Store in offline storage
-        await Promise.all(inventoryBatches.map(batch => 
+        
+        // Asegurar consistencia en los nombres de campos
+        const mappedInventoryBatches = inventoryBatches.map(batch => {
+          // Mapear de snake_case a camelCase manteniendo ambos para compatibilidad
+          const mapped = {
+            ...batch,
+            // Campos principales
+            inventoryId: batch.id || batch.inventoryId,
+            productId: batch.product_id || batch.productId || batch.productId,
+            locationId: batch.location_id || batch.locationId || batch.storeId,
+            quantity: batch.quantity || 0,
+            expirationDate: batch.expiration_date || batch.expirationDate,
+            cost: batch.cost || batch.cost || 0,
+            // Mantener campos originales para compatibilidad
+            product_id: batch.product_id || batch.productId,
+            location_id: batch.location_id || batch.locationId,
+            expiration_date: batch.expiration_date || batch.expirationDate,
+          };
+          return mapped;
+        });
+        
+        set({ inventoryBatches: mappedInventoryBatches });
+        
+        // Guardar en almacenamiento offline
+        await Promise.all(mappedInventoryBatches.map(batch => 
           offlineStorage.updateData('inventoryBatches', batch.inventoryId, batch)
         ));
       } else {
         const offlineInventoryBatches = await offlineStorage.getAllData('inventoryBatches');
-        set({ inventoryBatches: offlineInventoryBatches });
+        // Asegurar consistencia en los datos offline también
+        const mappedOfflineBatches = offlineInventoryBatches.map(batch => ({
+          ...batch,
+          productId: batch.product_id || batch.productId || batch.productId,
+          locationId: batch.location_id || batch.locationId || batch.storeId,
+          expirationDate: batch.expiration_date || batch.expirationDate,
+        }));
+        set({ inventoryBatches: mappedOfflineBatches });
       }
     } catch (error) {
       console.error("Error loading inventory batches:", error);
       try {
         const offlineInventoryBatches = await offlineStorage.getAllData('inventoryBatches');
-        set({ inventoryBatches: offlineInventoryBatches });
+        const mappedOfflineBatches = offlineInventoryBatches.map(batch => ({
+          ...batch,
+          productId: batch.product_id || batch.productId,
+          locationId: batch.location_id || batch.locationId,
+          expirationDate: batch.expiration_date || batch.expirationDate,
+        }));
+        set({ inventoryBatches: mappedOfflineBatches });
       } catch (offlineError) {
         console.error("Error loading inventory batches from offline storage:", offlineError);
       }
@@ -373,6 +447,23 @@ const useAppStore = create((set, get) => ({
       set({ cashClosings });
     } catch (error) {
       console.error("Error loading cash closings:", error);
+    }
+  },
+
+  fetchSalesReport: async ({ startDate, endDate, storeId = null, reportType = 'daily' }) => {
+    try {
+      set({ isLoading: { ...get().isLoading, salesReport: true } });
+      
+      const report = await getSalesReport(startDate, endDate, storeId, reportType);
+      
+      set({ salesReport: report });
+      
+      return report;
+    } catch (error) {
+      console.error("Error fetching sales report:", error);
+      return null;
+    } finally {
+      set({ isLoading: { ...get().isLoading, salesReport: false } });
     }
   },
 
@@ -498,6 +589,59 @@ const useAppStore = create((set, get) => ({
   alertSettings: {
     daysBeforeExpiration: 30,
     cardCommissionRate: 0.04, // 4% commission
+  },
+
+  // Weight modal functionality
+  isWeightModalOpen: false,
+  weighingProduct: null,
+  
+  openWeightModal: (product) => set({ isWeightModalOpen: true, weighingProduct: product }),
+  closeWeightModal: () => set({ isWeightModalOpen: false, weighingProduct: null }),
+  
+  addToCartWithWeight: (product, weight) => {
+    const { currentUser, inventoryBatches, cart } = get();
+    const storeId = currentUser?.storeId;
+
+    if (!storeId) {
+      console.error("No store ID found for current user. Cannot add to cart.");
+      return;
+    }
+
+    // Check if we have enough stock
+    const totalStockInLocation = inventoryBatches
+      .filter(batch => batch.productId === product.id && batch.locationId === storeId)
+      .reduce((sum, batch) => sum + batch.quantity, 0);
+
+    if (weight > totalStockInLocation) {
+      console.warn(`Cannot add ${weight} of ${product.name} to cart. Insufficient stock.`);
+      return; 
+    }
+
+    // Check if the item is already in the cart (for weight-based products)
+    const existingItemIndex = cart.findIndex(item => item.id === product.id);
+    
+    if (existingItemIndex >= 0) {
+      // If the item exists, update its quantity by adding the new weight
+      const updatedCart = [...cart];
+      updatedCart[existingItemIndex] = {
+        ...updatedCart[existingItemIndex],
+        quantity: updatedCart[existingItemIndex].quantity + weight
+      };
+      set({ cart: updatedCart });
+    } else {
+      // Add new product with the specified weight as quantity
+      const newCartItem = { 
+        ...product, 
+        quantity: weight,
+        unit: product.unit || 'kg' // Store the unit for reference
+      };
+      set((state) => ({
+        cart: [...state.cart, newCartItem],
+      }));
+    }
+    
+    // Save cart to offline storage
+    offlineStorage.saveCart(get().cart);
   },
 
   // --- ACTIONS ---
@@ -1030,30 +1174,104 @@ const useAppStore = create((set, get) => ({
   },
 
   // --- LÓGICA DE CATEGORÍAS ---
-  addCategory: (categoryData) => {
-    const newCategory = { ...categoryData, id: `cat-${Date.now()}`, subcategories: [] };
-    set(state => {
-      if (newCategory.parentId) {
-        const parentCategory = state.categories.find(c => c.id === newCategory.parentId);
-        if (parentCategory) {
-          parentCategory.subcategories.push(newCategory);
-          return { categories: [...state.categories] };
-        }
+  addCategory: async (categoryData) => {
+    try {
+      // Add to Supabase first
+      const newCategoryId = await addCategory(categoryData);
+      
+      // Reload categories to get the updated list with proper structure
+      await get().loadCategories();
+      
+      return { success: true, id: newCategoryId };
+    } catch (error) {
+      console.error("Error adding category:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  updateCategory: async (id, updatedData) => {
+    try {
+      // Update in Supabase
+      await updateCategory(id, updatedData);
+      
+      // Reload categories to get the updated list
+      await get().loadCategories();
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating category:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  deleteCategory: async (id) => {
+    try {
+      // Delete from Supabase
+      const { data: { error } } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id);
+        
+      if (error) {
+        throw error;
       }
-      return { categories: [...state.categories, newCategory] };
-    });
+      
+      // Also delete any subcategories of this category
+      await supabase
+        .from('categories')
+        .delete()
+        .eq('parent_id', id);
+      
+      // Reload categories to get the updated list
+      await get().loadCategories();
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      return { success: false, error: error.message };
+    }
   },
 
-  updateCategory: (id, updatedData) => {
-    set(state => ({
-      categories: state.categories.map(category => category.id === id ? { ...category, ...updatedData } : category)
-    }));
+  addInventoryBatch: async (inventoryData) => {
+    try {
+      const newInventoryBatchId = await addInventoryBatch(inventoryData);
+      
+      // Reload inventory batches to get the updated list
+      await get().loadInventoryBatches();
+      
+      return { success: true, id: newInventoryBatchId };
+    } catch (error) {
+      console.error("Error adding inventory batch:", error);
+      return { success: false, error: error.message };
+    }
   },
 
-  deleteCategory: (id) => {
-    set(state => ({
-      categories: state.categories.filter(category => category.id !== id)
-    }));
+  updateInventoryBatch: async (id, inventoryData) => {
+    try {
+      await updateInventoryBatch(id, inventoryData);
+      
+      // Reload inventory batches to get the updated list
+      await get().loadInventoryBatches();
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating inventory batch:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  deleteInventoryBatch: async (id) => {
+    try {
+      await deleteInventoryBatch(id);
+      
+      // Reload inventory batches to get the updated list
+      await get().loadInventoryBatches();
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting inventory batch:", error);
+      return { success: false, error: error.message };
+    }
   },
 
   handleCashClosing: (initialCash) => {

@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
+import useAppStore from '../../store/useAppStore';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import useAppStore from '../../store/useAppStore';
 
 const ClientFormModal = ({ client, onClose }) => {
   const { addClient, updateClient } = useAppStore();
@@ -12,7 +11,6 @@ const ClientFormModal = ({ client, onClose }) => {
     phone: '',
     address: '',
     creditLimit: 0,
-    creditBalance: 0,
   });
 
   useEffect(() => {
@@ -23,7 +21,6 @@ const ClientFormModal = ({ client, onClose }) => {
         phone: client.phone || '',
         address: client.address || '',
         creditLimit: client.creditLimit || 0,
-        creditBalance: client.creditBalance || 0,
       });
     } else {
       setFormData({
@@ -32,24 +29,33 @@ const ClientFormModal = ({ client, onClose }) => {
         phone: '',
         address: '',
         creditLimit: 0,
-        creditBalance: 0,
       });
     }
   }, [client]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (client) {
-      updateClient(client.id, formData);
-    } else {
-      addClient(formData);
+    
+    try {
+      if (client) {
+        // Update existing client
+        await updateClient(client.id, formData);
+      } else {
+        // Add new client
+        await addClient(formData);
+      }
+      onClose();
+    } catch (error) {
+      console.error('Error saving client:', error);
     }
-    onClose();
   };
 
   return (
@@ -65,6 +71,7 @@ const ClientFormModal = ({ client, onClose }) => {
           required
         />
       </div>
+
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
         <Input
@@ -75,16 +82,18 @@ const ClientFormModal = ({ client, onClose }) => {
           onChange={handleChange}
         />
       </div>
+
       <div>
         <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Teléfono</label>
         <Input
           id="phone"
           name="phone"
-          type="text"
+          type="tel"
           value={formData.phone}
           onChange={handleChange}
         />
       </div>
+
       <div>
         <label htmlFor="address" className="block text-sm font-medium text-gray-700">Dirección</label>
         <Input
@@ -95,6 +104,7 @@ const ClientFormModal = ({ client, onClose }) => {
           onChange={handleChange}
         />
       </div>
+
       <div>
         <label htmlFor="creditLimit" className="block text-sm font-medium text-gray-700">Límite de Crédito</label>
         <Input
@@ -103,12 +113,25 @@ const ClientFormModal = ({ client, onClose }) => {
           type="number"
           value={formData.creditLimit}
           onChange={handleChange}
-          prefix="$"
+          min="0"
         />
       </div>
-      <Button type="submit" className="w-full bg-indigo-600 text-white hover:bg-indigo-700">
-        {client ? "Guardar Cambios" : "Añadir Cliente"}
-      </Button>
+
+      <div className="flex justify-end space-x-3">
+        <Button 
+          type="button" 
+          onClick={onClose}
+          className="bg-gray-500 hover:bg-gray-600 text-white"
+        >
+          Cancelar
+        </Button>
+        <Button 
+          type="submit" 
+          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+        >
+          {client ? "Actualizar Cliente" : "Agregar Cliente"}
+        </Button>
+      </div>
     </form>
   );
 };

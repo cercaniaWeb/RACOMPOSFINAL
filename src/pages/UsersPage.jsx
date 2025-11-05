@@ -1,82 +1,106 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Plus, User, Edit, Trash2 } from 'lucide-react';
 import useAppStore from '../store/useAppStore';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import Modal from '../components/ui/Modal';
 import UserFormModal from '../features/users/UserFormModal';
+import Modal from '../components/ui/Modal';
 
 const UsersPage = () => {
-  const { users, deleteUser, stores } = useAppStore();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-
-  const getStoreName = (storeId) => stores.find(s => s.id === storeId)?.name || storeId;
-
-  const handleOpenModal = (user = null) => {
-    setEditingUser(user);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingUser(null);
-  };
-
-  const handleDelete = (uid) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
-      deleteUser(uid);
-    }
-  };
+  const { users, addUser, updateUser, deleteUser, stores, loadUsers } = useAppStore();
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  
+  useEffect(() => {
+    // Load users from the database
+    loadUsers();
+  }, [loadUsers]);
 
   return (
-    <div className="p-6 bg-[#0f0f0f] h-full">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-[#f5f5f5]">Gestión de Usuarios</h1>
-        <Button onClick={() => handleOpenModal()} variant="primary">
-          Añadir Nuevo Usuario
-        </Button>
+    <div className="flex-1 p-6 space-y-6 bg-[#1D1D27]">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-[#F0F0F0]">Gestión de Usuarios</h2>
+        <button 
+          className="bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+          onClick={() => {
+            setCurrentUser(null);
+            setShowUserModal(true);
+          }}
+        >
+          <Plus className="w-4 h-4" />
+          <span>Nuevo Usuario</span>
+        </button>
       </div>
 
-      <Card>
-        {users.length === 0 ? (
-          <p className="text-[#a0a0a0]">No hay usuarios registrados.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-[#333333]">
-              <thead>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[#a0a0a0] uppercase tracking-wider">Nombre</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[#a0a0a0] uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[#a0a0a0] uppercase tracking-wider">Rol</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[#a0a0a0] uppercase tracking-wider">Tienda</th>
-                  <th className="relative px-6 py-3"><span className="sr-only">Acciones</span></th>
+      <div className="bg-[#282837] rounded-xl border border-[#3a3a4a] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-[#1D1D27] border-b border-[#3a3a4a]">
+              <tr>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Nombre</th>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Email</th>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Rol</th>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Tienda</th>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id} className="border-b border-[#3a3a4a] hover:bg-[#1D1D27] transition-colors">
+                  <td className="py-4 px-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-[#8A2BE2] rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-[#F0F0F0] font-medium">{user.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6 text-[#a0a0b0]">{user.email}</td>
+                  <td className="py-4 px-6 text-[#F0F0F0]">{user.role}</td>
+                  <td className="py-4 px-6 text-[#F0F0F0]">
+                    {stores.find(store => store.id === user.storeId)?.name || user.storeId}
+                  </td>
+                  <td className="py-4 px-6">
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={() => {
+                          setCurrentUser(user);
+                          setShowUserModal(true);
+                        }}
+                        className="p-2 text-[#a0a0b0] hover:text-[#8A2BE2] hover:bg-[#3a3a4a] rounded-lg transition-colors"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => deleteUser(user.id)}
+                        className="p-2 text-[#a0a0b0] hover:text-red-500 hover:bg-[#3a3a4a] rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-[#333333]">
-                {users.map((user, index) => (
-                  <tr key={user.uid} className={`${index % 2 === 0 ? 'bg-[#202020]' : 'bg-[#2c2c2c]'} hover:bg-[#404040] transition-colors`}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#f5f5f5]">{user.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c0c0c0]">{user.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c0c0c0]">{user.role}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c0c0c0]">{getStoreName(user.storeId)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Button onClick={() => handleOpenModal(user)} variant="outline" className="mr-2">
-                        Editar
-                      </Button>
-                      <Button onClick={() => handleDelete(user.uid)} variant="danger">
-                        Eliminar
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingUser ? "Editar Usuario" : "Añadir Nuevo Usuario"}>
-        <UserFormModal user={editingUser} onClose={handleCloseModal} />
+      {/* User Form Modal */}
+      <Modal 
+        isOpen={showUserModal}
+        title={currentUser ? "Editar Usuario" : "Nuevo Usuario"} 
+        onClose={() => {
+          setShowUserModal(false);
+          setCurrentUser(null);
+        }}
+      >
+        <UserFormModal 
+          user={currentUser} 
+          stores={stores}
+          onClose={() => {
+            setShowUserModal(false);
+            setCurrentUser(null);
+          }} 
+        />
       </Modal>
     </div>
   );

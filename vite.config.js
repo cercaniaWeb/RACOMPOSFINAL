@@ -9,7 +9,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: true
+        enabled: true,
+        type: 'module',
+        navigateFallback: 'index.html'
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Excluir archivos de desarrollo de Vite
+        navigateFallbackDenylist: [/^\/src\/.*$/, /^\/node_modules\/.*$/, /^\/@.*$/]
       },
       manifest: {
         name: 'RECOOM POS',

@@ -1,81 +1,89 @@
-
 import React, { useState } from 'react';
+import { Plus, User } from 'lucide-react';
 import useAppStore from '../store/useAppStore';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import Modal from '../components/ui/Modal';
 import ClientFormModal from '../features/clients/ClientFormModal';
+import Modal from '../components/ui/Modal';
 
 const ClientsPage = () => {
-  const { clients, deleteClient } = useAppStore();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState(null);
-
-  const handleOpenModal = (client = null) => {
-    setEditingClient(client);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingClient(null);
-  };
-
-  const handleDelete = (clientId) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
-      deleteClient(clientId);
-    }
-  };
+  const { addClient } = useAppStore();
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [currentClient, setCurrentClient] = useState(null);
+  
+  // Mock data for clients
+  const clients = [
+    { id: 1, name: 'María González', email: 'maria@email.com', phone: '+1 234 567 890', lastPurchase: '2024-01-15', total: '$2,450' },
+    { id: 2, name: 'Juan Pérez', email: 'juan@email.com', phone: '+1 234 567 891', lastPurchase: '2024-01-14', total: '$1,890' },
+    { id: 3, name: 'Ana Rodríguez', email: 'ana@email.com', phone: '+1 234 567 892', lastPurchase: '2024-01-13', total: '$3,200' },
+    { id: 4, name: 'Carlos López', email: 'carlos@email.com', phone: '+1 234 567 893', lastPurchase: '2024-01-12', total: '$950' },
+    { id: 5, name: 'Laura Martínez', email: 'laura@email.com', phone: '+1 234 567 894', lastPurchase: '2024-01-11', total: '$4,100' },
+  ];
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Gestión de Clientes</h1>
-        <Button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white hover:bg-indigo-700">
-          Añadir Nuevo Cliente
-        </Button>
+    <div className="flex-1 p-6 space-y-6 bg-[#1D1D27]">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-[#F0F0F0]">Gestión de Clientes</h2>
+        <button 
+          className="bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+          onClick={() => {
+            setCurrentClient(null);
+            setShowClientModal(true);
+          }}
+        >
+          <Plus className="w-4 h-4" />
+          <span>Nuevo Cliente</span>
+        </button>
       </div>
 
-      <Card>
-        {clients.length === 0 ? (
-          <p className="text-gray-500">No hay clientes registrados.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Crédito Pendiente</th>
-                  <th className="relative px-6 py-3"><span className="sr-only">Acciones</span></th>
+      <div className="bg-[#282837] rounded-xl border border-[#3a3a4a] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-[#1D1D27] border-b border-[#3a3a4a]">
+              <tr>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Cliente</th>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Email</th>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Teléfono</th>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Última Compra</th>
+                <th className="text-left py-4 px-6 text-[#a0a0b0] font-medium">Total Gastado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.map((client) => (
+                <tr key={client.id} className="border-b border-[#3a3a4a] hover:bg-[#1D1D27] transition-colors">
+                  <td className="py-4 px-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-[#8A2BE2] rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-[#F0F0F0] font-medium">{client.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6 text-[#a0a0b0]">{client.email}</td>
+                  <td className="py-4 px-6 text-[#F0F0F0]">{client.phone}</td>
+                  <td className="py-4 px-6 text-[#F0F0F0]">{client.lastPurchase}</td>
+                  <td className="py-4 px-6 text-[#8A2BE2] font-bold">{client.total}</td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {clients.map((client) => (
-                  <tr key={client.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{client.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{client.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{client.phone}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${client.creditBalance.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Button onClick={() => handleOpenModal(client)} className="text-indigo-600 hover:text-indigo-900 mr-4">
-                        Editar
-                      </Button>
-                      <Button onClick={() => handleDelete(client.id)} className="text-red-600 hover:text-red-900">
-                        Eliminar
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingClient ? "Editar Cliente" : "Añadir Nuevo Cliente"}>
-        <ClientFormModal client={editingClient} onClose={handleCloseModal} />
+      {/* Client Form Modal */}
+      <Modal 
+        isOpen={showClientModal}
+        title={currentClient ? "Editar Cliente" : "Nuevo Cliente"} 
+        onClose={() => {
+          setShowClientModal(false);
+          setCurrentClient(null);
+        }}
+      >
+        <ClientFormModal 
+          client={currentClient} 
+          onClose={() => {
+            setShowClientModal(false);
+            setCurrentClient(null);
+          }} 
+        />
       </Modal>
     </div>
   );

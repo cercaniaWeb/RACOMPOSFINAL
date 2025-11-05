@@ -39,6 +39,7 @@ import ScheduleVisitModal from '../features/pos/ScheduleVisitModal';
 import WithdrawalModal from '../features/pos/WithdrawalModal';
 import ProductCollectionModal from '../features/pos/ProductCollectionModal';
 import QRScanner from '../components/qr/QRScanner';
+import WeightModal from '../components/WeightModal';
 
 
 
@@ -61,6 +62,11 @@ export default function POSPage() {
     darkMode,
     isOnline,
     offlineMode,
+    isWeightModalOpen,
+    weighingProduct,
+    openWeightModal,
+    closeWeightModal,
+    addToCartWithWeight,
   } = useAppStore();
 
   const [isScanning, setIsScanning] = useState(false);
@@ -113,24 +119,75 @@ export default function POSPage() {
 
   const productsForSale = useMemo(() => {
     const storeId = currentUser?.storeId;
-    if (!storeId) return [];
+    if (!storeId) {
+      console.log("No store ID for current user");
+      return [];
+    }
 
+    console.log("storeId:", storeId);
+    console.log("inventoryBatches:", inventoryBatches);
+    console.log("productCatalog length:", productCatalog.length);
+
+    // Mapear inventario por producto con manejo de ambos formatos de campo
     const stockByProduct = inventoryBatches.reduce((acc, batch) => {
-      if (batch.locationId === storeId) {
-        acc[batch.productId] = (acc[batch.productId] || 0) + batch.quantity;
+      // Manejar ambos formatos: locationId (camelCase) y location_id (snake_case)
+      const batchLocationId = batch.locationId || batch.location_id;
+      
+      // Asegurarse de que la comparación sea consistente con tipos de datos
+      if (String(batchLocationId) === String(storeId)) {
+        // Manejar ambos formatos: productId (camelCase) y product_id (snake_case)
+        const productId = batch.productId || batch.product_id;
+        // Asegurar tipo cadena para la clave del objeto
+        acc[String(productId)] = (acc[String(productId)] || 0) + batch.quantity;
       }
       return acc;
     }, {});
 
-    return productCatalog
+    console.log("stockByProduct:", stockByProduct);
+
+    // Mapear productos del catálogo con información adicional
+    let allCatalogProducts = productCatalog
       .map(product => ({
         ...product,
-        stockInLocation: stockByProduct[product.id] || 0,
-      }))
-      .filter(product => product.stockInLocation > 0)
-      .filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        // Mapear campos de categoría asegurando el nombre correcto
+        categoryId: product.categoryId || product.category_id,
+        // Calcular stock en la ubicación actual (asegurar string para comparación)
+        stockInLocation: stockByProduct[String(product.id)] || 0,
+        // Asegurar que el nombre del producto existe
+        name: product.name || product.nombre || product.productName || 'Producto sin nombre',
+        // Añadir nombre de categoría si es necesario
+        categoryName: categories.find(c => 
+          c.id === (product.categoryId || product.category_id)
+        )?.name || 'Sin categoría'
+      }));
 
-  }, [productCatalog, inventoryBatches, currentUser, searchTerm]);
+    console.log("allCatalogProducts count:", allCatalogProducts.length);
+
+    // Si no hay productos en el catálogo, crear productos de ejemplo para debug
+    if (allCatalogProducts.length === 0) {
+      console.log("No products in catalog, creating example products for debug");
+      allCatalogProducts = [
+        { id: 'debug-1', name: 'Producto de Ejemplo 1', price: 25.50, stockInLocation: 10, category: 'Abarrotes', unit: 'unidad' },
+        { id: 'debug-2', name: 'Producto de Ejemplo 2', price: 32.00, stockInLocation: 5, category: 'Abarrotes', unit: 'unidad' },
+        { id: 'debug-3', name: 'Producto de Ejemplo 3', price: 45.90, stockInLocation: 0, category: 'Bebidas', unit: 'litro' },
+        { id: 'debug-4', name: 'Producto de Ejemplo 4', price: 18.75, stockInLocation: 20, category: 'Vicio', unit: 'unidad' },
+        { id: 'debug-5', name: 'Producto de Ejemplo 5', price: 85.00, stockInLocation: 3, category: 'Vicio', unit: 'unidad' },
+      ];
+    }
+
+    // Filtrar productos según la búsqueda (asegurar strings para la comparación)
+    const productsToShow = allCatalogProducts.filter(product => 
+      // Manejar búsqueda con múltiples campos de nombre
+      (String(product.name).toLowerCase().includes(String(searchTerm).toLowerCase()) ||
+       String(product.nombre || '').toLowerCase().includes(String(searchTerm).toLowerCase()) ||
+       String(product.productName || '').toLowerCase().includes(String(searchTerm).toLowerCase()) ||
+       String(product.description || '').toLowerCase().includes(String(searchTerm).toLowerCase()))
+    );
+
+    console.log("productsToShow count:", productsToShow.length);
+    
+    return productsToShow;
+  }, [productCatalog, inventoryBatches, currentUser, searchTerm, categories]);
 
   // Show notification when going offline
   React.useEffect(() => {
@@ -265,12 +322,12 @@ export default function POSPage() {
   const canAccessEmployeeConsumption = currentUser && (currentUser.role === 'admin' || currentUser.role === 'gerente');
 
   return (
-      <main className="flex-1 flex flex-col md:flex-row gap-6 p-6 h-screen bg-[#0f0f0f]">
+      <main className="flex-1 flex flex-col md:flex-row gap-6 p-6 h-screen bg-[#1D1D27]">
         <div className="w-full md:w-2/3 flex flex-col gap-6">
           <header className="flex justify-between items-center text-[#f5f5f5]">
             <div>
-              <h1 className="text-2xl font-bold text-[#f5f5f5]">Punto de Venta</h1>
-              <p className="text-sm text-[#a0a0a0]">Tienda: {currentUser?.storeName || 'Principal'}</p>
+              <h1 className="text-2xl font-bold text-[#F0F0F0]">Punto de Venta</h1>
+              <p className="text-sm text-[#a0a0b0]">Tienda: {currentUser?.storeName || 'Principal'}</p>
               {offlineMode && (
                 <div className="flex items-center mt-1">
                   <div className="w-2 h-2 bg-[#ff5252] rounded-full mr-2"></div>
@@ -289,44 +346,42 @@ export default function POSPage() {
               <Button onClick={toggleFullscreen} variant="outline" className="p-2">
                 <Maximize size={20} />
               </Button>
-              <UserCircle size={24} className="text-[#a0a0a0]" />
-              <span className="text-[#c0c0c0]">{currentUser?.name}</span>
             </div>
           </header>
 
-          <Card className="flex-1 flex flex-col">
+          <div className="bg-[#282837] rounded-xl border border-[#3a3a4a] flex-1 flex flex-col">
             <div className="flex-1 overflow-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#333333]">
-                    <th className="py-2 text-left text-[#a0a0a0] text-sm font-semibold uppercase tracking-wider">Cantidad</th>
-                    <th className="py-2 text-left text-[#a0a0a0] text-sm font-semibold uppercase tracking-wider">Producto</th>
-                    <th className="py-2 text-right text-[#a0a0a0] text-sm font-semibold uppercase tracking-wider">Precio</th>
-                    <th className="py-2 text-right text-[#a0a0a0] text-sm font-semibold uppercase tracking-wider">Acciones</th>
+                  <tr className="border-b border-[#3a3a4a]">
+                    <th className="py-3 px-4 text-left text-[#a0a0b0] text-sm font-semibold uppercase tracking-wider">Cantidad</th>
+                    <th className="py-3 px-4 text-left text-[#a0a0b0] text-sm font-semibold uppercase tracking-wider">Producto</th>
+                    <th className="py-3 px-4 text-right text-[#a0a0b0] text-sm font-semibold uppercase tracking-wider">Precio</th>
+                    <th className="py-3 px-4 text-right text-[#a0a0b0] text-sm font-semibold uppercase tracking-wider">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cart.map((item) => (
-                    <tr key={item.id} className="border-b border-[#333333] last:border-none">
-                      <td className="py-3">
+                    <tr key={item.id} className="border-b border-[#3a3a4a] last:border-none">
+                      <td className="py-3 px-4">
                         <input
                           type="number"
                           value={item.quantity}
                           onChange={(e) => handleQuantityChange(item.id, e)}
                           min="1"
-                          className="w-16 border rounded-lg text-center bg-[#202020] text-[#f5f5f5] border-[#404040] focus:ring-2 focus:ring-[#7c4dff] focus:border-[#7c4dff]"
+                          className="w-16 border rounded-lg text-center bg-[#1D1D27] text-[#F0F0F0] border-[#3a3a4a] focus:ring-2 focus:ring-[#8A2BE2] focus:border-[#8A2BE2]"
                         />
                       </td>
-                      <td className="py-3 font-medium text-[#f5f5f5]">{item.name}</td>
-                      <td className="py-3 text-right font-semibold text-[#f5f5f5]">
+                      <td className="py-3 px-4 font-medium text-[#F0F0F0]">{item.name}</td>
+                      <td className="py-3 px-4 text-right font-semibold text-[#F0F0F0]">
                         ${(item.price * item.quantity).toLocaleString()}
                       </td>
-                      <td className="py-3 text-right">
+                      <td className="py-3 px-4 text-right">
                         <Button 
                           onClick={() => removeFromCart(item.id)} 
                           variant="ghost"
                           size="sm"
-                          className="text-[#a0a0a0] hover:text-[#ff5252]"
+                          className="text-[#a0a0b0] hover:text-[#ff5252]"
                         >
                           <X size={18} />
                         </Button>
@@ -337,33 +392,33 @@ export default function POSPage() {
               </table>
             </div>
             
-            <div className="mt-4 flex flex-col xs:flex-row justify-between items-center gap-4 pt-4 border-t border-[#333333]">
+            <div className="mt-4 flex flex-col xs:flex-row justify-between items-center gap-4 pt-4 border-t border-[#3a3a4a]">
               <div className="flex flex-wrap gap-2">
-                <Button onClick={() => setIsScheduleVisitModalOpen(true)} variant="outline" className="font-medium flex items-center space-x-2"><Calendar size={16}/><span>Agendar</span></Button>
-                <Button onClick={() => setIsDiscountModalOpen(true)} variant="outline" className="font-medium flex items-center space-x-2"><Percent size={16}/><span>Descuento</span></Button>
-                <Button onClick={() => setIsNoteModalOpen(true)} variant="outline" className="font-medium flex items-center space-x-2"><FileText size={16}/><span>Nota</span></Button>
+                <Button onClick={() => setIsScheduleVisitModalOpen(true)} variant="outline" className="font-medium flex items-center space-x-2 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]"><Calendar size={16}/><span>Agendar</span></Button>
+                <Button onClick={() => setIsDiscountModalOpen(true)} variant="outline" className="font-medium flex items-center space-x-2 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]"><Percent size={16}/><span>Descuento</span></Button>
+                <Button onClick={() => setIsNoteModalOpen(true)} variant="outline" className="font-medium flex items-center space-x-2 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]"><FileText size={16}/><span>Nota</span></Button>
                 {canAccessEmployeeConsumption && (
-                  <Button onClick={() => setIsEmployeeConsumptionModalOpen(true)} variant="outline" className="font-medium flex items-center space-x-2">
+                  <Button onClick={() => setIsEmployeeConsumptionModalOpen(true)} variant="outline" className="font-medium flex items-center space-x-2 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]">
                     <UserCircle size={16}/><span>Consumo</span>
                   </Button>
                 )}
               </div>
-              <div className="text-right text-[#c0c0c0]">
-                <p className="text-[#a0a0a0] text-sm">Subtotal: ${subtotal.toLocaleString()}</p>
-                <p className="text-2xl font-bold text-[#f5f5f5]">Total: ${subtotal.toLocaleString()}</p>
+              <div className="text-right text-[#F0F0F0]">
+                <p className="text-[#a0a0b0] text-sm">Subtotal: ${subtotal.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-[#F0F0F0]">Total: ${subtotal.toLocaleString()}</p>
               </div>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-3 mt-3">
-              <Button onClick={() => setIsPreviousSalesModalOpen(true)} variant="outline" className="font-medium flex-1">
+              <Button onClick={() => setIsPreviousSalesModalOpen(true)} variant="outline" className="font-medium flex-1 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]">
                 <Printer size={16} className="mr-2" />
                 Ventas Anteriores
               </Button>
-              <Button onClick={() => setIsCashClosingModalOpen(true)} variant="outline" className="font-medium flex-1">
+              <Button onClick={() => setIsCashClosingModalOpen(true)} variant="outline" className="font-medium flex-1 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]">
                 <FileText size={16} className="mr-2" />
                 Cierre de Caja
               </Button>
-              <Button onClick={() => setIsWithdrawalModalOpen(true)} variant="outline" className="font-medium flex-1">
+              <Button onClick={() => setIsWithdrawalModalOpen(true)} variant="outline" className="font-medium flex-1 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]">
                 <CreditCard size={16} className="mr-2" />
                 Retiro
               </Button>
@@ -371,39 +426,39 @@ export default function POSPage() {
             
             <Button 
               onClick={handleCheckoutClick} 
-              className="w-full mt-3 py-4 text-lg" 
+              className="w-full mt-3 py-3 text-lg bg-[#8A2BE2] hover:bg-purple-700" 
               size="lg"
               variant="primary"
               disabled={offlineMode && cart.length === 0}
             >
               {offlineMode ? 'Modo Sin Conexión - Procesar Pago Local' : `Procesar Pago - ${subtotal.toLocaleString()}`}
             </Button>
-          </Card>
+          </div>
         </div>
 
-        <Card className="w-full md:w-1/3 flex flex-col">
+        <div className="w-full md:w-1/3 flex flex-col bg-[#282837] rounded-xl border border-[#3a3a4a] p-4">
           <div className="flex justify-between items-center mb-4">
             <div className="flex space-x-2">
-              <Button onClick={() => setIsCalculatorModalOpen(true)} size="sm"><Calculator size={20} /></Button>
-              <Button onClick={() => setIsProductCollectionModalOpen(true)} size="sm"><Package size={20} /></Button>
-              <Button onClick={toggleScanning} size="sm">
+              <Button onClick={() => setIsCalculatorModalOpen(true)} size="sm" className="bg-[#1D1D27] hover:bg-[#3a3a4a] text-[#F0F0F0] border border-[#3a3a4a]"><Calculator size={20} /></Button>
+              <Button onClick={() => setIsProductCollectionModalOpen(true)} size="sm" className="bg-[#1D1D27] hover:bg-[#3a3a4a] text-[#F0F0F0] border border-[#3a3a4a]"><Package size={20} /></Button>
+              <Button onClick={toggleScanning} size="sm" className="bg-[#1D1D27] hover:bg-[#3a3a4a] text-[#F0F0F0] border border-[#3a3a4a]">
                 <Scan size={20} />
               </Button>
             </div>
-            <Input icon={Search} type="text" placeholder="Buscar producto..." className="flex-1 ml-2 max-w-xs" onChange={(e) => setSearchTerm(e.target.value)} />
+            <Input icon={Search} type="text" placeholder="Buscar producto..." className="flex-1 ml-2 max-w-xs bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] placeholder-[#a0a0b0]" onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
 
           {isScanning && (
             <div className="mb-4">
-              <video ref={ref} className="w-full max-w-md h-auto aspect-video bg-[#2c2c2c] rounded-xl mx-auto"></video>
-              <p className="text-center text-sm text-[#a0a0a0] mt-2">Escaneando código de barras...</p>
+              <video ref={ref} className="w-full max-w-md h-auto aspect-video bg-[#3a3a4a] rounded-lg mx-auto"></video>
+              <p className="text-center text-sm text-[#a0a0b0] mt-2">Escaneando código de barras...</p>
             </div>
           )}
 
           <div className="flex flex-wrap gap-2 mb-4">
-            {categories.slice(0, 6).map(c => <Button key={c.id} variant="outline" size="sm" className="py-1 font-medium whitespace-nowrap">{c.name}</Button>)}
+            {categories.slice(0, 6).map(c => <Button key={c.id} variant="outline" size="sm" className="py-1 font-medium whitespace-nowrap text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]">{c.name}</Button>)}
             {categories.length > 6 && (
-              <Button variant="outline" size="sm" className="py-1 font-medium" onClick={() => setIsProductCollectionModalOpen(true)}>
+              <Button variant="outline" size="sm" className="py-1 font-medium text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]" onClick={() => setIsProductCollectionModalOpen(true)}>
                 +{categories.length - 6}
               </Button>
             )}
@@ -412,33 +467,59 @@ export default function POSPage() {
           <div className="flex-1 overflow-auto" style={{maxHeight: 'calc(100vh - 220px)'}}>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {productsForSale.map(p => (
-                <div key={p.id} className="relative rounded-xl p-4 text-center cursor-pointer transition-all duration-200 hover:scale-[1.02] bg-[#2c2c2c] hover:bg-[#404040]" onClick={() => addToCart(p)}>
+                <div 
+                  key={p.id} 
+                  className={`relative rounded-lg p-4 text-center cursor-pointer transition-all duration-200 hover:scale-[1.02] border ${
+                    p.stockInLocation === 0 ? "bg-[#3a3a4a] border-[#5c5c6c] cursor-not-allowed opacity-60" : "bg-[#1D1D27] border-[#3a3a4a] hover:bg-[#3a3a4a]"
+                  } ${
+                    (p.unit === "kg" || p.unit === "gr" || p.unit === "lb" || p.unit === "oz") ? "ring-2 ring-[#8A2BE2] ring-opacity-50" : ""
+                  }`}
+                  onClick={() => {
+                    if (p.stockInLocation > 0) {
+                      // Check if product is sold by weight
+                      if (p.unit === "kg" || p.unit === "gr" || p.unit === "lb" || p.unit === "oz") {
+                        // Open weight modal instead of adding to cart
+                        openWeightModal(p);
+                      } else {
+                        // Add to cart normally for unit-based products
+                        addToCart(p);
+                      }
+                    } else {
+                      // Show message if no stock available
+                      alert(`No hay existencias disponibles para ${p.name}`);
+                    }
+                  }}
+                >
                    <div className={`absolute top-1 right-1 text-xs font-bold px-2 py-0.5 rounded-full ${
-                     p.stockInLocation < 10 ? 'bg-[#ff5252] text-white' : 
-                     p.stockInLocation < 20 ? 'bg-[#ffab00] text-[#1f1f1f]' : 
-                     'bg-[#00c853] text-white'
+                     p.stockInLocation === 0 ? "bg-[#666666] text-white" :
+                     p.stockInLocation < 10 ? "bg-[#ff5252] text-white" : 
+                     p.stockInLocation < 20 ? "bg-[#ffab00] text-[#1f1f1f]" : 
+                     "bg-[#00c853] text-white"
                    }`}>
-                    {p.stockInLocation}
+                    {p.stockInLocation} {p.unit === 'unidad' ? '' : p.unit || ''}
                   </div>
-                  <div className="bg-[#404040] border-2 border-dashed rounded-xl w-16 h-16 mx-auto mb-2 flex items-center justify-center">
+                  <div className="bg-[#3a3a4a] rounded-lg w-16 h-16 mx-auto mb-2 flex items-center justify-center">
                     {p.image ? (
-                      <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
+                      <img src={p.image} alt={p.name} className="w-full h-full object-contain rounded" />
                     ) : (
-                      <span className="text-[#a0a0a0] text-xs">No imagen</span>
+                      <Package className="w-8 h-8 text-[#a0a0b0]" />
                     )}
                   </div>
-                  <p className="text-xs font-semibold text-[#f5f5f5]">{p.name}</p>
-                  <p className="text-sm font-bold text-[#7c4dff]">${p.price}</p>
+                  <p className="text-xs font-semibold text-[#F0F0F0]">{p.name}</p>
+                  <p className="text-sm font-bold text-[#8A2BE2]">${p.price}{(p.unit === 'kg' || p.unit === 'gr' || p.unit === 'lb' || p.unit === 'oz') ? `/${p.unit}` : ''}</p>
+                  {p.unit !== 'unidad' && (p.unit === 'kg' || p.unit === 'gr' || p.unit === 'lb' || p.unit === 'oz') && (
+                    <p className="text-xs text-[#a0a0b0] mt-1">Por {p.unit}</p>
+                  )}
                 </div>
               ))}
             </div>
           </div>
           
-          <Button className="w-full mt-3 py-2 font-semibold flex items-center justify-center space-x-2" onClick={() => setIsProductFormModalOpen(true)}>
+          <Button className="w-full mt-3 py-3 font-semibold flex items-center justify-center space-x-2 bg-[#8A2BE2] hover:bg-purple-700" onClick={() => setIsProductFormModalOpen(true)}>
             <Plus size={18} />
             <span>Agregar Producto</span>
           </Button>
-        </Card>
+        </div>
 
         {lastSale && (
           <Modal isOpen={postPaymentModalOpen} onClose={() => setPostPaymentModalOpen(false)} title="Opciones de Ticket">
@@ -516,6 +597,16 @@ export default function POSPage() {
         <Modal isOpen={isProductCollectionModalOpen} onClose={() => setIsProductCollectionModalOpen(false)} title="Colección de Productos">
           <ProductCollectionModal onClose={() => setIsProductCollectionModalOpen(false)} />
         </Modal>
+
+        <WeightModal 
+          isOpen={isWeightModalOpen} 
+          onClose={closeWeightModal} 
+          product={weighingProduct}
+          onAddToCart={(weight) => {
+            addToCartWithWeight(weighingProduct, weight);
+            closeWeightModal();
+          }}
+        />
       </main>
   );
 }

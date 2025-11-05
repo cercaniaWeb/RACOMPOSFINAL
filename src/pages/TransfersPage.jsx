@@ -1,133 +1,106 @@
 import React, { useState } from 'react';
+import { Plus, Truck } from 'lucide-react';
 import useAppStore from '../store/useAppStore';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import TransferFormModal from '../features/transfers/TransferFormModal';
 import Modal from '../components/ui/Modal';
-import TransferRequestForm from '../features/transfers/TransferRequestForm';
-import TransferDetailsPage from '../features/transfers/TransferDetailsPage'; // Import the new component
 
 const TransfersPage = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedTransferId, setSelectedTransferId] = useState(null); // New state for view management
-  const { transfers, stores, currentUser } = useAppStore();
+  const { currentUser } = useAppStore();
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  
+  // Mock data for transfers
+  const transfersToSend = [
+    { id: 1, origin: 'Sucursal Central', destination: 'Sucursal Norte', products: 5, amount: '$2,450', time: 'Hace 2 horas' },
+    { id: 2, origin: 'Sucursal Central', destination: 'Sucursal Sur', products: 3, amount: '$1,200', time: 'Hace 5 horas' },
+    { id: 3, origin: 'Bodega', destination: 'Sucursal Central', products: 8, amount: '$3,680', time: 'Hace 1 día' },
+  ];
 
-  const getStoreName = (storeId) => stores.find(s => s.id === storeId)?.name || storeId;
+  const transfersToReceive = [
+    { id: 4, origin: 'Sucursal Sur', destination: 'Sucursal Central', products: 3, amount: '$1,200', time: 'Hace 1 día' },
+    { id: 5, origin: 'Bodega', destination: 'Sucursal Norte', products: 6, amount: '$2,100', time: 'Hace 2 días' },
+  ];
 
-  const transfersToSend = transfers.filter(t => t.originLocationId === currentUser.storeId);
-  const transfersToReceive = transfers.filter(t => t.destinationLocationId === currentUser.storeId);
-
-  // If a transfer is selected, show the details page
-  if (selectedTransferId) {
-    return <TransferDetailsPage transferId={selectedTransferId} onBack={() => setSelectedTransferId(null)} />;
-  }
-
-  // Otherwise, show the list of transfers
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Órdenes de Traslado</h1>
-        <Button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white hover:bg-indigo-700">
-          Crear Solicitud de Traslado
-        </Button>
+    <div className="flex-1 p-6 space-y-6 bg-[#1D1D27]">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-[#F0F0F0]">Órdenes de Traslado</h2>
+        <button 
+          className="bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+          onClick={() => setShowTransferModal(true)}
+        >
+          <Plus className="w-4 h-4" />
+          <span>Crear Solicitud</span>
+        </button>
       </div>
 
-      <Card className="mb-6">
-        <h2 className="text-xl font-semibold mb-4">Traslados por Enviar ({transfersToSend.length})</h2>
-        {transfersToSend.length === 0 ? (
-          <p className="text-gray-500">No hay traslados pendientes de envío.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Destino</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Creación</th>
-                  <th className="relative px-6 py-3"><span className="sr-only">Acciones</span></th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {transfersToSend.map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.id.slice(-6)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStoreName(order.destinationLocationId)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ 
-                        order.status === 'solicitado' ? 'bg-blue-100 text-blue-800' :
-                        order.status === 'aprobado' ? 'bg-indigo-100 text-indigo-800' :
-                        order.status === 'enviado' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Button onClick={() => setSelectedTransferId(order.id)} className="text-indigo-600 hover:text-indigo-900">
-                        Ver Detalles
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Transfers to Send */}
+        <div className="bg-[#282837] rounded-xl p-6 border border-[#3a3a4a]">
+          <h3 className="text-lg font-bold text-[#F0F0F0] mb-4 flex items-center space-x-2">
+            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+            <span>Traslados por Enviar</span>
+          </h3>
+          <div className="space-y-4">
+            {transfersToSend.map((transfer) => (
+              <div key={transfer.id} className="bg-[#1D1D27] rounded-lg p-4 border border-[#3a3a4a]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[#F0F0F0] font-medium">TR-{String(transfer.id).padStart(4, '0')}</span>
+                  <span className="text-[#a0a0b0] text-sm">{transfer.time}</span>
+                </div>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-[#F0F0F0]">{transfer.origin} → {transfer.destination}</p>
+                    <p className="text-[#a0a0b0] text-sm">{transfer.products} productos</p>
+                  </div>
+                  <span className="text-yellow-500 font-bold">{transfer.amount}</span>
+                </div>
+                <button className="w-full bg-[#8A2BE2] hover:bg-purple-700 text-white py-2 rounded-lg transition-colors">
+                  Preparar Envío
+                </button>
+              </div>
+            ))}
           </div>
-        )}
-      </Card>
+        </div>
 
-      <Card>
-        <h2 className="text-xl font-semibold mb-4">Traslados por Recibir ({transfersToReceive.length})</h2>
-        {transfersToReceive.length === 0 ? (
-          <p className="text-gray-500">No hay traslados pendientes de recepción.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Origen</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Creación</th>
-                  <th className="relative px-6 py-3"><span className="sr-only">Acciones</span></th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {transfersToReceive.map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.id.slice(-6)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStoreName(order.originLocationId)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ 
-                        order.status === 'solicitado' ? 'bg-blue-100 text-blue-800' :
-                        order.status === 'aprobado' ? 'bg-indigo-100 text-indigo-800' :
-                        order.status === 'enviado' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {order.status === 'enviado' && (
-                        <Button onClick={() => setSelectedTransferId(order.id)} className="text-green-600 hover:text-green-900 mr-2">
-                          Recibir Traslado
-                        </Button>
-                      )}
-                      <Button onClick={() => setSelectedTransferId(order.id)} className="text-indigo-600 hover:text-indigo-900">
-                        Ver Detalles
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Transfers to Receive */}
+        <div className="bg-[#282837] rounded-xl p-6 border border-[#3a3a4a]">
+          <h3 className="text-lg font-bold text-[#F0F0F0] mb-4 flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span>Traslados por Recibir</span>
+          </h3>
+          <div className="space-y-4">
+            {transfersToReceive.map((transfer) => (
+              <div key={transfer.id} className="bg-[#1D1D27] rounded-lg p-4 border border-[#3a3a4a]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[#F0F0F0] font-medium">TR-{String(transfer.id).padStart(4, '0')}</span>
+                  <span className="text-[#a0a0b0] text-sm">{transfer.time}</span>
+                </div>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-[#F0F0F0]">{transfer.origin} → {transfer.destination}</p>
+                    <p className="text-[#a0a0b0] text-sm">{transfer.products} productos</p>
+                  </div>
+                  <span className="text-green-500 font-bold">{transfer.amount}</span>
+                </div>
+                <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition-colors">
+                  Confirmar Recepción
+                </button>
+              </div>
+            ))}
           </div>
-        )}
-      </Card>
+        </div>
+      </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Crear Nueva Solicitud de Traslado">
-        <TransferRequestForm onClose={() => setIsModalOpen(false)} />
+      {/* Transfer Form Modal */}
+      <Modal 
+        isOpen={showTransferModal}
+        title="Crear Solicitud de Traslado" 
+        onClose={() => setShowTransferModal(false)}
+      >
+        <TransferFormModal 
+          onClose={() => setShowTransferModal(false)} 
+          currentUser={currentUser}
+        />
       </Modal>
     </div>
   );
