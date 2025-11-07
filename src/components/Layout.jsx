@@ -64,9 +64,11 @@ const Layout = ({ children }) => {
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center space-x-8">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-[#8A2BE2] rounded-lg flex items-center justify-center">
-              <ShoppingCart className="w-5 h-5 text-white" />
-            </div>
+            <img 
+              src="/src/utils/logopos.png" 
+              alt="Logo RACOM POS" 
+              className="w-8 h-8 object-contain"
+            />
             <span className="text-xl font-bold text-[#F0F0F0]">RACOM POS</span>
           </div>
           

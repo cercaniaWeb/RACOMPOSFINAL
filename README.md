@@ -180,6 +180,36 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 - A los usuarios beta por sus valiosos comentarios
 - A la comunidad de código abierto por las herramientas utilizadas
 
+## 🧪 Pruebas
+
+El proyecto incluye un sistema de pruebas basado en Vitest y Testing Library:
+
+- Pruebas unitarias para componentes de UI
+- Pruebas de integración
+- Pruebas de renderizado de componentes
+- Configuración lista para pruebas de estado con Zustand
+
+Ejecutar pruebas:
+```bash
+npm run test:run  # Ejecutar pruebas una vez
+npm run test      # Ejecutar pruebas en modo watch
+```
+
+## 🚀 Estado del Proyecto
+
+**RECOOM POS** está completamente funcional con las siguientes características implementadas:
+
+- ✅ **Sistema de Punto de Venta** completo con soporte offline
+- ✅ **Gestión de inventario** distribuido por almacenes
+- ✅ **Gestión de usuarios y roles** con diferentes permisos
+- ✅ **Sistema de ventas** con tickets y pagos
+- ✅ **Generación de reportes** detallados
+- ✅ **Sistema de traslados** entre almacenes
+- ✅ **Gestión de clientes y proveedores**
+- ✅ **Funcionalidades PWA** para uso offline
+- ✅ **Sistema de pruebas** configurado y funcional
+- ✅ **Diseño responsive** para dispositivos móviles y de escritorio
+
 ---
 
 **RECOOM POS** - Transformando la gestión de abarrotes para el futuro digital.

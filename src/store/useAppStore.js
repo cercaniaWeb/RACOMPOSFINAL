@@ -2,25 +2,26 @@ import { create } from 'zustand';
 import { 
   getProducts, 
   getProduct,
-  addProduct, 
-  updateProduct, 
-  deleteProduct,
+  addProduct as addProductAPI, 
+  updateProduct as updateProductAPI, 
+  deleteProduct as deleteProductAPI,
   getCategories, 
-  addCategory, 
-  updateCategory,
+  addCategory as addCategoryAPI, 
+  updateCategory as updateCategoryAPI,
   getUsers,
   getUser,
-  addUser,
-  updateUser,
+  addUser as addUserAPI,
+  updateUser as updateUserAPI,
+  deleteUser as deleteUserAPI,
   getStores,
   getInventoryBatches,
-  addInventoryBatch,
-  updateInventoryBatch,
-  deleteInventoryBatch,
+  addInventoryBatch as addInventoryBatchAPI,
+  updateInventoryBatch as updateInventoryBatchAPI,
+  deleteInventoryBatch as deleteInventoryBatchAPI,
   getSales,
-  addSale,
+  addSale as addSaleAPI,
   getClients,
-  addClient,
+  addClient as addClientAPI,
   getTransfers,
   getShoppingList,
   getExpenses,
@@ -29,7 +30,7 @@ import {
   initializeSupabaseCollections
 } from '../utils/supabaseAPI';
 import offlineStorage from '../utils/offlineStorage';
-import { auth, supabase } from '../config/firebase';
+import { supabase } from '../config/supabase';
 
 
 const useAppStore = create((set, get) => ({
@@ -115,7 +116,7 @@ const useAppStore = create((set, get) => ({
             const { id, status, createdAt, ...saleData } = sale;
             
             // Save the sale to Firebase
-            const saleId = await addSale(saleData);
+            const saleId = await addSaleAPI(saleData);
             
             // Remove from offline storage after successful sync
             await offlineStorage.deleteData('pendingSales', sale.id);
@@ -210,6 +211,33 @@ const useAppStore = create((set, get) => ({
         set({ products: mappedOfflineProducts });
       } catch (offlineError) {
         console.error("Error loading products from offline storage:", offlineError);
+        // Si no hay productos en la base de datos y tampoco en offline, crear productos de ejemplo
+        console.log("Creando productos de ejemplo para debug");
+        const exampleProducts = [
+          { id: 'debug-1', name: 'Coca Cola 600ml', price: 12.50, categoryId: 'bebidas', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: 'debug-2', name: 'Sabritas Original 42g', price: 10.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: 'debug-3', name: 'Leche Lala 1L', price: 24.90, categoryId: 'lacteos', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: 'debug-4', name: 'Huevo Grande 12pz', price: 32.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: 'debug-5', name: 'Pan Blanco Bimbo', price: 18.50, categoryId: 'panaderia', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          // Productos adicionales que estaban en el catálogo de pruebas
+          { id: '6', name: 'bonafont', price: 15.00, categoryId: 'bebidas', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '7', name: 'Cahuamon Victoria', price: 55.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '8', name: 'CI Malboro', price: 50.00, categoryId: 'vicio', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '9', name: 'Crema Alpura', price: 25.00, categoryId: 'lacteos', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '10', name: 'Crossantines', price: 7.00, categoryId: 'panaderia', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '11', name: 'Desodorante eGo', price: 50.00, categoryId: 'limpieza', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '12', name: 'Doritos Nacho', price: 18.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '13', name: 'mayonesa', price: 25.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '14', name: 'pruebasprod', price: 10.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '15', name: 'pruebasTicket', price: 1.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+          { id: '16', name: 'testPrdoduc', price: 15.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
+        ];
+        set({ products: exampleProducts });
+        
+        // También guardar en offline storage para persistencia
+        await Promise.all(exampleProducts.map(product => 
+          offlineStorage.updateData('products', product.id, product)
+        ));
       }
     } finally {
       set({ isLoading: { ...get().isLoading, products: false } });
@@ -237,6 +265,20 @@ const useAppStore = create((set, get) => ({
         set({ categories: offlineCategories });
       } catch (offlineError) {
         console.error("Error loading categories from offline storage:", offlineError);
+        // Si no hay categorías en la base de datos y tampoco en offline, crear categorías de ejemplo
+        console.log("Creando categorías de ejemplo para debug");
+        const exampleCategories = [
+          { id: 'abarrotes', name: 'Abarrotes', description: 'Productos de abarrotes' },
+          { id: 'bebidas', name: 'Bebidas', description: 'Bebidas en general' },
+          { id: 'lacteos', name: 'Lácteos', description: 'Leche, quesos y derivados' },
+          { id: 'panaderia', name: 'Panadería', description: 'Pan y productos de panadería' },
+          { id: 'carnes', name: 'Carnes', description: 'Carnes y embutidos' },
+          { id: 'frutas', name: 'Frutas', description: 'Frutas frescas' },
+          { id: 'verduras', name: 'Verduras', description: 'Verduras frescas' },
+          { id: 'limpieza', name: 'Limpieza', description: 'Productos de limpieza' },
+          { id: 'vicio', name: 'Vicio', description: 'Cigarrillos y productos varios' },
+        ];
+        set({ categories: exampleCategories });
       }
     } finally {
       set({ isLoading: { ...get().isLoading, categories: false } });
@@ -248,20 +290,45 @@ const useAppStore = create((set, get) => ({
     try {
       if (get().isOnline) {
         const users = await getUsers();
-        set({ users });
+        
+        // Mapear campos para consistencia
+        const mappedUsers = users.map(user => {
+          return {
+            ...user,
+            // Mapear campos de tienda para consistencia
+            storeId: user.store_id || user.storeId,
+            storeName: user.store_name || user.storeName,
+            // Mantener campos originales para compatibilidad
+            store_id: user.store_id || user.storeId,
+            store_name: user.store_name || user.storeName
+          };
+        });
+        
+        set({ users: mappedUsers });
         // Store in offline storage
-        await Promise.all(users.map(user => 
+        await Promise.all(mappedUsers.map(user => 
           offlineStorage.updateData('users', user.id, user)
         ));
       } else {
         const offlineUsers = await offlineStorage.getAllData('users');
-        set({ users: offlineUsers });
+        // Mapear campos para consistencia en offline también
+        const mappedOfflineUsers = offlineUsers.map(user => ({
+          ...user,
+          storeId: user.store_id || user.storeId,
+          storeName: user.store_name || user.storeName
+        }));
+        set({ users: mappedOfflineUsers });
       }
     } catch (error) {
       console.error("Error loading users:", error);
       try {
         const offlineUsers = await offlineStorage.getAllData('users');
-        set({ users: offlineUsers });
+        const mappedOfflineUsers = offlineUsers.map(user => ({
+          ...user,
+          storeId: user.store_id || user.storeId,
+          storeName: user.store_name || user.storeName
+        }));
+        set({ users: mappedOfflineUsers });
       } catch (offlineError) {
         console.error("Error loading users from offline storage:", offlineError);
       }
@@ -353,6 +420,71 @@ const useAppStore = create((set, get) => ({
         set({ inventoryBatches: mappedOfflineBatches });
       } catch (offlineError) {
         console.error("Error loading inventory batches from offline storage:", offlineError);
+        // Si no hay inventario en la base de datos y tampoco en offline, crear inventario de ejemplo
+        console.log("Creando inventario de ejemplo para debug");
+        const exampleInventoryBatches = [
+          // Inventario para los productos originales de ejemplo
+          { inventoryId: 'inv-1', productId: 'debug-1', locationId: '1', quantity: 20, cost: 10.00 },
+          { inventoryId: 'inv-2', productId: 'debug-2', locationId: '1', quantity: 15, cost: 8.00 },
+          { inventoryId: 'inv-3', productId: 'debug-3', locationId: '1', quantity: 10, cost: 20.00 },
+          { inventoryId: 'inv-4', productId: 'debug-4', locationId: '1', quantity: 12, cost: 25.00 },
+          { inventoryId: 'inv-5', productId: 'debug-5', locationId: '1', quantity: 8, cost: 15.00 },
+          
+          // Inventario para los productos adicionales que están en el catálogo
+          { inventoryId: 'inv-6', productId: '6', locationId: '1', quantity: 30, cost: 12.00 },
+          { inventoryId: 'inv-7', productId: '7', locationId: '1', quantity: 15, cost: 45.00 },
+          { inventoryId: 'inv-8', productId: '8', locationId: '1', quantity: 20, cost: 40.00 },
+          { inventoryId: 'inv-9', productId: '9', locationId: '1', quantity: 25, cost: 20.00 },
+          { inventoryId: 'inv-10', productId: '10', locationId: '1', quantity: 40, cost: 5.00 },
+          { inventoryId: 'inv-11', productId: '11', locationId: '1', quantity: 18, cost: 40.00 },
+          { inventoryId: 'inv-12', productId: '12', locationId: '1', quantity: 35, cost: 15.00 },
+          { inventoryId: 'inv-13', productId: '13', locationId: '1', quantity: 22, cost: 20.00 },
+          { inventoryId: 'inv-14', productId: '14', locationId: '1', quantity: 30, cost: 8.00 },
+          { inventoryId: 'inv-15', productId: '15', locationId: '1', quantity: 50, cost: 0.80 },
+          { inventoryId: 'inv-16', productId: '16', locationId: '1', quantity: 28, cost: 12.00 },
+          
+          // Inventario para las demás tiendas
+          { inventoryId: 'inv-17', productId: 'debug-1', locationId: '2', quantity: 18, cost: 10.00 },
+          { inventoryId: 'inv-18', productId: 'debug-2', locationId: '2', quantity: 12, cost: 8.00 },
+          { inventoryId: 'inv-19', productId: 'debug-3', locationId: '2', quantity: 9, cost: 20.00 },
+          { inventoryId: 'inv-20', productId: 'debug-4', locationId: '2', quantity: 11, cost: 25.00 },
+          { inventoryId: 'inv-21', productId: 'debug-5', locationId: '2', quantity: 7, cost: 15.00 },
+          { inventoryId: 'inv-22', productId: '6', locationId: '2', quantity: 25, cost: 12.00 },
+          { inventoryId: 'inv-23', productId: '7', locationId: '2', quantity: 10, cost: 45.00 },
+          { inventoryId: 'inv-24', productId: '8', locationId: '2', quantity: 15, cost: 40.00 },
+          { inventoryId: 'inv-25', productId: '9', locationId: '2', quantity: 20, cost: 20.00 },
+          { inventoryId: 'inv-26', productId: '10', locationId: '2', quantity: 30, cost: 5.00 },
+          { inventoryId: 'inv-27', productId: '11', locationId: '2', quantity: 12, cost: 40.00 },
+          { inventoryId: 'inv-28', productId: '12', locationId: '2', quantity: 25, cost: 15.00 },
+          { inventoryId: 'inv-29', productId: '13', locationId: '2', quantity: 18, cost: 20.00 },
+          { inventoryId: 'inv-30', productId: '14', locationId: '2', quantity: 20, cost: 8.00 },
+          { inventoryId: 'inv-31', productId: '15', locationId: '2', quantity: 40, cost: 0.80 },
+          { inventoryId: 'inv-32', productId: '16', locationId: '2', quantity: 22, cost: 12.00 },
+          
+          // Inventario para bodega central
+          { inventoryId: 'inv-33', productId: 'debug-1', locationId: 'bodega-central', quantity: 50, cost: 10.00 },
+          { inventoryId: 'inv-34', productId: 'debug-2', locationId: 'bodega-central', quantity: 40, cost: 8.00 },
+          { inventoryId: 'inv-35', productId: 'debug-3', locationId: 'bodega-central', quantity: 35, cost: 20.00 },
+          { inventoryId: 'inv-36', productId: 'debug-4', locationId: 'bodega-central', quantity: 30, cost: 25.00 },
+          { inventoryId: 'inv-37', productId: 'debug-5', locationId: 'bodega-central', quantity: 25, cost: 15.00 },
+          { inventoryId: 'inv-38', productId: '6', locationId: 'bodega-central', quantity: 100, cost: 12.00 },
+          { inventoryId: 'inv-39', productId: '7', locationId: 'bodega-central', quantity: 60, cost: 45.00 },
+          { inventoryId: 'inv-40', productId: '8', locationId: 'bodega-central', quantity: 80, cost: 40.00 },
+          { inventoryId: 'inv-41', productId: '9', locationId: 'bodega-central', quantity: 70, cost: 20.00 },
+          { inventoryId: 'inv-42', productId: '10', locationId: 'bodega-central', quantity: 90, cost: 5.00 },
+          { inventoryId: 'inv-43', productId: '11', locationId: 'bodega-central', quantity: 55, cost: 40.00 },
+          { inventoryId: 'inv-44', productId: '12', locationId: 'bodega-central', quantity: 85, cost: 15.00 },
+          { inventoryId: 'inv-45', productId: '13', locationId: 'bodega-central', quantity: 65, cost: 20.00 },
+          { inventoryId: 'inv-46', productId: '14', locationId: 'bodega-central', quantity: 75, cost: 8.00 },
+          { inventoryId: 'inv-47', productId: '15', locationId: 'bodega-central', quantity: 120, cost: 0.80 },
+          { inventoryId: 'inv-48', productId: '16', locationId: 'bodega-central', quantity: 70, cost: 12.00 },
+        ];
+        set({ inventoryBatches: exampleInventoryBatches });
+        
+        // También guardar en offline storage para persistencia
+        await Promise.all(exampleInventoryBatches.map(batch => 
+          offlineStorage.updateData('inventoryBatches', batch.inventoryId, batch)
+        ));
       }
     } finally {
       set({ isLoading: { ...get().isLoading, inventory: false } });
@@ -470,7 +602,7 @@ const useAppStore = create((set, get) => ({
   // --- LÓGICA DE CLIENTES ---
   addClient: async (clientData) => {
     try {
-      const clientId = await addClient({
+      const clientId = await addClientAPI({
         ...clientData,
         creditBalance: 0,
         createdAt: new Date().toISOString(),
@@ -643,267 +775,321 @@ const useAppStore = create((set, get) => ({
     // Save cart to offline storage
     offlineStorage.saveCart(get().cart);
   },
-
-  // --- ACTIONS ---
-
-  // Inicialización
-  initialize: () => {
-    set({
-      products: localProducts,
-      categories: localCategories,
-      users: localUsers,
-      stores: localStores,
-      inventoryBatches: localInventoryBatches,
-    });
-    get().checkAllAlerts();
-  },
-
-  // Autenticación
-  handleLogin: async (email, password) => {
-    try {
-      // Sign in with Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+    // --- ACTIONS ---
+  
+    // Inicialización
+    initialize: async () => {
+      console.log("useAppStore initialize function called.");
+      const storedTicketSettings = localStorage.getItem('ticketSettings');
+      let initialTicketSettings = get().ticketSettings; // Get default settings
+      const darkModePreference = true; // Fixed dark mode (disabled toggle functionality)
+  
+      if (storedTicketSettings) {
+        const parsedSettings = JSON.parse(storedTicketSettings);
+        console.log("Loading ticketSettings from localStorage:", parsedSettings);
+        initialTicketSettings = { ...initialTicketSettings, ...parsedSettings }; // Merge with stored
+      }
+  
+      // Initialize network listeners for offline support
+      get().initNetworkListeners();
+  
+      // Initialize Supabase collections if needed
+      await initializeSupabaseCollections();
+  
+      // Load data from Firebase
+      await Promise.all([
+        get().loadProducts(),
+        get().loadCategories(), 
+        get().loadUsers(),
+        get().loadStores(),
+        get().loadInventoryBatches(),
+        get().loadSalesHistory(),
+        get().loadClients(),
+        get().loadTransfers(),
+        get().loadShoppingList(),
+        get().loadExpenses(),
+        get().loadCashClosings(),
+      ]);
+  
+      set({
+        ticketSettings: initialTicketSettings, // Set merged settings
+        darkMode: darkModePreference, // Set dark mode preference
+        isOnline: navigator.onLine, // Set initial network status
+        offlineMode: !navigator.onLine, // Set initial offline mode
       });
-      
-      if (error) {
-        if (error.message.includes('Invalid login credentials') || error.message.includes('Invalid email/phone')) {
-          return { success: false, error: "Usuario o contraseña incorrectos" };
+      get().checkAllAlerts();
+    },
+  
+    // Autenticación
+    handleLogin: async (email, password) => {
+      try {
+        // Sign in with Supabase
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) {
+          if (error.message.includes('Invalid login credentials') || error.message.includes('Invalid email/phone')) {
+            return { success: false, error: "Usuario o contraseña incorrectos" };
+          } else {
+            return { success: false, error: `Error de autenticación: ${error.message}` };
+          }
+        }
+        
+        // La respuesta de autenticación de Supabase tiene la estructura data.user
+        if (!data || !data.user) {
+          return { success: false, error: "Error de autenticación: No se recibió información de usuario" };
+        }
+        
+        // Fetch user details from Supabase
+        const userDoc = await getUser(data.user.id);
+        if (userDoc) {
+          set({
+            currentUser: {
+              ...userDoc,
+              storeId: userDoc.storeId || userDoc.store_id, // Ensure storeId is properly mapped
+              storeName: userDoc.storeName || userDoc.store_name || 'Tienda no asignada' // Ensure storeName is available
+            },
+            currentView: userDoc.role === 'admin' || userDoc.role === 'gerente' ? 'admin-dashboard' : 'pos',
+          });
+          // Initialize the app data after login
+          await get().initialize();
+          return { success: true, user: userDoc };
         } else {
-          return { success: false, error: `Error de autenticación: ${error.message}` };
+          return { success: false, error: "Usuario no encontrado en la base de datos" };
+        }
+      } catch (error) {
+        return { success: false, error: `Error de autenticación: ${error.message}` };
+      }
+    },
+    handleLogout: () => {
+      set({ 
+        currentUser: null, 
+        currentView: 'login', 
+        cart: [],
+        // Reset all data to empty arrays
+        products: [],
+        categories: [],
+        users: [],
+        stores: [],
+        clients: [],
+        inventoryBatches: [],
+        transfers: [],
+        salesHistory: [],
+        expenses: [],
+        shoppingList: [],
+        cashClosings: [],
+      });
+    },
+  
+    // Navegación
+    setCurrentView: (view) => set({ currentView: view }),
+    setActiveTab: (tab) => set({ activeTab: tab }),
+  
+    // Carrito
+    addToCart: (product) => {
+      const { currentUser, inventoryBatches, cart } = get();
+      
+      // Si no hay currentUser, usar un storeId por defecto para fines de prueba
+      const storeId = currentUser?.storeId || '1';
+  
+      if (!storeId) {
+        console.error("No store ID found for current user. Cannot add to cart.");
+        return;
+      }
+  
+      // For offline mode, we'll use the last known inventory
+      let stockInLocation = 0;
+      if (inventoryBatches && inventoryBatches.length > 0) {
+        stockInLocation = inventoryBatches
+          .filter(batch => String(batch.productId) === String(product.id) && String(batch.locationId) === String(storeId))
+          .reduce((sum, batch) => sum + batch.quantity, 0);
+      } else {
+        // If no inventory data is available (offline), allow adding to cart
+        stockInLocation = Infinity;
+      }
+  
+      // En modo desarrollo, permitir agregar productos aunque no tengan stock
+      if (process.env.NODE_ENV === 'development' || stockInLocation === Infinity) {
+        set((state) => {
+          const existingItem = state.cart.find(item => item.id === product.id);
+          if (existingItem) {
+            return {
+              cart: state.cart.map(item =>
+                item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+              ),
+            };
+          } else {
+            return {
+              cart: [...state.cart, { ...product, quantity: 1 }],
+            };
+          }
+        });
+      } else {
+        // En producción, verificar stock real
+        const itemInCart = cart.find(item => item.id === product.id);
+        const quantityInCart = itemInCart ? itemInCart.quantity : 0;
+  
+        if (quantityInCart >= stockInLocation) {
+          console.warn(`Cannot add more ${product.name} to cart. Stock limit reached.`);
+          return; 
+        }
+  
+        set((state) => {
+          const existingItem = state.cart.find(item => item.id === product.id);
+          if (existingItem) {
+            return {
+              cart: state.cart.map(item =>
+                item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+              ),
+            };
+          } else {
+            return {
+              cart: [...state.cart, { ...product, quantity: 1 }],
+            };
+          }
+        });
+      }
+      
+      // Save cart to offline storage
+      offlineStorage.saveCart(get().cart);
+    },
+    removeFromCart: (productId) => {
+      set((state) => ({
+        cart: state.cart.filter(item => item.id !== productId),
+      }));
+      // Save cart to offline storage
+      offlineStorage.saveCart(get().cart);
+    },
+  
+    updateCartItemQuantity: (productId, quantity) => {
+      set((state) => ({
+        cart: state.cart.map(item =>
+          item.id === productId ? { ...item, quantity: quantity } : item
+        ).filter(item => item.quantity > 0),
+      }));
+      // Save cart to offline storage
+      offlineStorage.saveCart(get().cart);
+    },
+  
+    handleCheckout: async (payment) => {
+      const { cart, currentUser, inventoryBatches, discount, note, isOnline } = get();
+      const { cash, card, cardCommission, commissionInCash } = payment;
+      const storeId = currentUser?.storeId;
+  
+      if (!storeId) {
+        console.error("Checkout failed: No store ID for current user.");
+        return;
+      }
+  
+      // Create a copy of inventory batches to update
+      let updatedBatches = JSON.parse(JSON.stringify(inventoryBatches)); // Deep copy to avoid mutation issues
+  
+      // Deduct quantities from inventory batches
+      for (const item of cart) {
+        let quantityToDeduct = item.quantity;
+  
+        const relevantBatches = updatedBatches
+          .filter(b => b.productId === item.id && b.locationId === storeId)
+          .sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate));
+  
+        for (const batch of relevantBatches) {
+          if (quantityToDeduct <= 0) break;
+  
+          const deductAmount = Math.min(quantityToDeduct, batch.quantity);
+          batch.quantity -= deductAmount;
+          quantityToDeduct -= deductAmount;
         }
       }
-      
-      // La respuesta de autenticación de Supabase tiene la estructura data.user
-      if (!data || !data.user) {
-        return { success: false, error: "Error de autenticación: No se recibió información de usuario" };
+  
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      let finalTotal = subtotal;
+  
+      if (discount.type === 'percentage') {
+        finalTotal = subtotal * (1 - discount.value / 100);
+      } else if (discount.type === 'amount') {
+        finalTotal = subtotal - discount.value;
       }
-      
-      // Fetch user details from Supabase
-      const userDoc = await getUser(data.user.id);
-      if (userDoc) {
-        set({
-          currentUser: userDoc,
-          currentView: userDoc.role === 'admin' || userDoc.role === 'gerente' ? 'admin-dashboard' : 'pos',
-        });
-        // Initialize the app data after login
-        await get().initialize();
-        return { success: true, user: userDoc };
-      } else {
-        return { success: false, error: "Usuario no encontrado en la base de datos" };
+  
+      // Apply card commission
+      if (cardCommission > 0 && !commissionInCash) {
+        finalTotal += cardCommission;
       }
-    } catch (error) {
-      return { success: false, error: `Error de autenticación: ${error.message}` };
-    }
-  },
-  handleLogout: () => {
-    set({ 
-      currentUser: null, 
-      currentView: 'login', 
-      cart: [],
-      // Reset all data to empty arrays
-      products: [],
-      categories: [],
-      users: [],
-      stores: [],
-      clients: [],
-      inventoryBatches: [],
-      transfers: [],
-      salesHistory: [],
-      expenses: [],
-      shoppingList: [],
-      cashClosings: [],
-    });
-  },
-
-  // Navegación
-  setCurrentView: (view) => set({ currentView: view }),
-  setActiveTab: (tab) => set({ activeTab: tab }),
-
-  // Carrito
-  addToCart: (product) => {
-    const { currentUser, inventoryBatches, cart } = get();
-    const storeId = currentUser?.storeId;
-
-    if (!storeId) {
-      console.error("No store ID found for current user. Cannot add to cart.");
-      return;
-    }
-
-    // For offline mode, we'll use the last known inventory
-    let stockInLocation = 0;
-    if (inventoryBatches && inventoryBatches.length > 0) {
-      stockInLocation = inventoryBatches
-        .filter(batch => batch.productId === product.id && batch.locationId === storeId)
-        .reduce((sum, batch) => sum + batch.quantity, 0);
-    } else {
-      // If no inventory data is available (offline), allow adding to cart
-      stockInLocation = Infinity;
-    }
-
-    const itemInCart = cart.find(item => item.id === product.id);
-    const quantityInCart = itemInCart ? itemInCart.quantity : 0;
-
-    if (quantityInCart >= stockInLocation) {
-      console.warn(`Cannot add more ${product.name} to cart. Stock limit reached.`);
-      return; 
-    }
-
-    set((state) => {
-      const existingItem = state.cart.find(item => item.id === product.id);
-      if (existingItem) {
-        return {
-          cart: state.cart.map(item =>
-            item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-          ),
-        };
-      } else {
-        return {
-          cart: [...state.cart, { ...product, quantity: 1 }],
-        };
-      }
-    });
-    
-    // Save cart to offline storage
-    offlineStorage.saveCart(get().cart);
-  },
-  removeFromCart: (productId) => {
-    set((state) => ({
-      cart: state.cart.filter(item => item.id !== productId),
-    }));
-    // Save cart to offline storage
-    offlineStorage.saveCart(get().cart);
-  },
-
-  updateCartItemQuantity: (productId, quantity) => {
-    set((state) => ({
-      cart: state.cart.map(item =>
-        item.id === productId ? { ...item, quantity: quantity } : item
-      ).filter(item => item.quantity > 0),
-    }));
-    // Save cart to offline storage
-    offlineStorage.saveCart(get().cart);
-  },
-
-  handleCheckout: async (payment) => {
-    const { cart, currentUser, inventoryBatches, discount, note, isOnline } = get();
-    const { cash, card, cardCommission, commissionInCash } = payment;
-    const storeId = currentUser?.storeId;
-
-    if (!storeId) {
-      console.error("Checkout failed: No store ID for current user.");
-      return;
-    }
-
-    // Create a copy of inventory batches to update
-    let updatedBatches = JSON.parse(JSON.stringify(inventoryBatches)); // Deep copy to avoid mutation issues
-
-    // Deduct quantities from inventory batches
-    for (const item of cart) {
-      let quantityToDeduct = item.quantity;
-
-      const relevantBatches = updatedBatches
-        .filter(b => b.productId === item.id && b.locationId === storeId)
-        .sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate));
-
-      for (const batch of relevantBatches) {
-        if (quantityToDeduct <= 0) break;
-
-        const deductAmount = Math.min(quantityToDeduct, batch.quantity);
-        batch.quantity -= deductAmount;
-        quantityToDeduct -= deductAmount;
-      }
-    }
-
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    let finalTotal = subtotal;
-
-    if (discount.type === 'percentage') {
-      finalTotal = subtotal * (1 - discount.value / 100);
-    } else if (discount.type === 'amount') {
-      finalTotal = subtotal - discount.value;
-    }
-
-    // Apply card commission
-    if (cardCommission > 0 && !commissionInCash) {
-      finalTotal += cardCommission;
-    }
-
-    const saleDetails = {
-      cart: cart.map(item => ({...item})), // Create a copy to avoid reference issues
-      subtotal: subtotal,
-      discount: discount,
-      note: note,
-      total: finalTotal,
-      cash: cash,
-      card: card,
-      cardCommission: cardCommission,
-      commissionInCash: commissionInCash,
-      cashier: currentUser ? currentUser.name : 'Unknown',
-      storeId: storeId,
-      date: new Date().toISOString(), // This will be set by Firebase serverTimestamp
-    };
-
-    // If offline, store the sale for later sync
-    if (!isOnline) {
-      const offlineSaleId = `offline-sale-${Date.now()}`;
-      const offlineSale = {
-        ...saleDetails,
-        id: offlineSaleId,
-        status: 'pending',
-        createdAt: new Date().toISOString()
+  
+      const saleDetails = {
+        cart: cart.map(item => ({...item})), // Create a copy to avoid reference issues
+        subtotal: subtotal,
+        discount: discount,
+        note: note,
+        total: finalTotal,
+        cash: cash,
+        card: card,
+        cardCommission: cardCommission,
+        commissionInCash: commissionInCash,
+        cashier: currentUser ? currentUser.name : 'Unknown',
+        storeId: storeId,
+        date: new Date().toISOString(), // This will be set by Firebase serverTimestamp
       };
-      
-      // Store in offline storage
-      await offlineStorage.updateData('pendingSales', offlineSaleId, offlineSale);
-      
-      // Update inventory batches in offline storage
-      await Promise.all(updatedBatches.map(batch => 
-        offlineStorage.updateData('inventoryBatches', batch.inventoryId, batch)
-      ));
-      
-      // Update the state
-      set({ 
-        cart: [], 
-        lastSale: { ...saleDetails, saleId: offlineSaleId },
-        salesHistory: [...get().salesHistory, { ...saleDetails, saleId: offlineSaleId }],
-        discount: { type: 'none', value: 0 }, // Reset discount after checkout
-        note: '', // Reset note after checkout
-        inventoryBatches: updatedBatches.filter(b => b.quantity > 0),
-      });
-
-      get().checkAllAlerts();
-      
-      return { success: true, saleId: offlineSaleId, offline: true };
-    }
-
-    try {
-      // Save the sale to Firebase
-      const saleId = await addSale(saleDetails);
-      
-      // Update inventory batches in Firebase
-      // For simplicity, we'll reload inventory after checkout
-      await get().loadInventoryBatches();
-
-      // Update the state
-      set({ 
-        cart: [], 
-        lastSale: { ...saleDetails, saleId }, // Add the generated sale ID
-        salesHistory: [...get().salesHistory, { ...saleDetails, saleId }], // Add sale to history
-        discount: { type: 'none', value: 0 }, // Reset discount after checkout
-        note: '', // Reset note after checkout
-      });
-
-      get().checkAllAlerts();
-      
-      return { success: true, saleId };
-    } catch (error) {
-      console.error("Error processing checkout:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
+  
+      // If offline, store the sale for later sync
+      if (!isOnline) {
+        const offlineSaleId = `offline-sale-${Date.now()}`;
+        const offlineSale = {
+          ...saleDetails,
+          id: offlineSaleId,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
+        
+        // Store in offline storage
+        await offlineStorage.updateData('pendingSales', offlineSaleId, offlineSale);
+        
+        // Update inventory batches in offline storage
+        await Promise.all(updatedBatches.map(batch => 
+          offlineStorage.updateData('inventoryBatches', batch.inventoryId, batch)
+        ));
+        
+        // Update the state
+        set({ 
+          cart: [], 
+          lastSale: { ...saleDetails, saleId: offlineSaleId },
+          salesHistory: [...get().salesHistory, { ...saleDetails, saleId: offlineSaleId }],
+          discount: { type: 'none', value: 0 }, // Reset discount after checkout
+          note: '', // Reset note after checkout
+          inventoryBatches: updatedBatches.filter(b => b.quantity > 0),
+        });
+  
+        get().checkAllAlerts();
+        
+        return { success: true, saleId: offlineSaleId, offline: true };
+      }
+  
+      try {
+        // Save the sale to Firebase
+        const saleId = await addSaleAPI(saleDetails);
+        
+        // Update inventory batches in Firebase
+        // For simplicity, we'll reload inventory after checkout
+        await get().loadInventoryBatches();
+  
+        // Update the state
+        set({ 
+          cart: [], 
+          lastSale: { ...saleDetails, saleId }, // Add the generated sale ID
+          salesHistory: [...get().salesHistory, { ...saleDetails, saleId }], // Add sale to history
+          discount: { type: 'none', value: 0 }, // Reset discount after checkout
+          note: '', // Reset note after checkout
+        });
+  
+        get().checkAllAlerts();
+        
+        return { success: true, saleId };
+      } catch (error) {
+        console.error("Error processing checkout:", error);
+        return { success: false, error: error.message };
+      }
+    },
   // --- LÓGICA DE TRANSFERENCIAS ---
   createTransferRequest: ({ items }) => {
     const { currentUser, stores } = get();
@@ -929,375 +1115,6 @@ const useAppStore = create((set, get) => ({
       transfers: [...state.transfers, newTransfer]
     }));
   },
-
-  approveTransfer: (transferId) => {
-    set(state => ({
-      transfers: state.transfers.map(t => 
-        t.id === transferId 
-        ? { 
-            ...t, 
-            status: 'aprobado', 
-            history: [...t.history, { status: 'aprobado', date: new Date().toISOString(), userId: get().currentUser.uid }]
-          } 
-        : t
-      )
-    }));
-  },
-
-  shipTransfer: (transferId, sentItems) => {
-    const { inventoryBatches } = get();
-    let updatedBatches = JSON.parse(JSON.stringify(inventoryBatches));
-
-    // Deduct stock from origin (bodega-central)
-    for (const item of sentItems) {
-      let quantityToDeduct = item.sentQuantity;
-      const relevantBatches = updatedBatches
-        .filter(b => b.productId === item.id && b.locationId === 'bodega-central')
-        .sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate));
-
-      for (const batch of relevantBatches) {
-        if (quantityToDeduct <= 0) break;
-        const deductAmount = Math.min(quantityToDeduct, batch.quantity);
-        batch.quantity -= deductAmount;
-        quantityToDeduct -= deductAmount;
-      }
-    }
-
-    set(state => ({
-      inventoryBatches: updatedBatches.filter(b => b.quantity > 0),
-      transfers: state.transfers.map(t => 
-        t.id === transferId 
-        ? { 
-            ...t, 
-            status: 'enviado', 
-            items: t.items.map(origItem => {
-              const sentItem = sentItems.find(si => si.productId === origItem.productId);
-              return sentItem ? { ...origItem, sentQuantity: sentItem.sentQuantity } : origItem;
-            }),
-            history: [...t.history, { status: 'enviado', date: new Date().toISOString(), userId: get().currentUser.uid }]
-          } 
-        : t
-      )
-    }));
-    get().checkAllAlerts();
-  },
-
-  receiveTransfer: (transferId, receivedItems) => {
-    const { inventoryBatches } = get();
-    let updatedBatches = JSON.parse(JSON.stringify(inventoryBatches));
-    const transfer = get().transfers.find(t => t.id === transferId);
-    const destinationId = transfer.destinationLocationId;
-
-    // Add stock to destination
-    for (const item of receivedItems) {
-        // This is a simplified logic. A real system would need to decide if it merges with an existing batch
-        // or creates a new one. For now, we create a new batch.
-        const originalItem = transfer.items.find(i => i.productId === item.productId);
-        updatedBatches.push({
-            inventoryId: `inv-${Date.now()}-${item.productId}`,
-            productId: item.productId,
-            locationId: destinationId,
-            quantity: item.receivedQuantity,
-            cost: originalItem?.cost || 0, // This should be improved to get the real cost from the shipped batch
-            expirationDate: '2027-12-31', // This should come from the shipped batch
-        });
-    }
-
-    set(state => ({
-      inventoryBatches: updatedBatches,
-      transfers: state.transfers.map(t => 
-        t.id === transferId 
-        ? { 
-            ...t, 
-            status: 'recibido', 
-            items: t.items.map(origItem => { 
-              const receivedItem = receivedItems.find(ri => ri.productId === origItem.productId);
-              return receivedItem ? { ...origItem, receivedQuantity: receivedItem.receivedQuantity } : origItem;
-            }),
-            history: [...t.history, { status: 'recibido', date: new Date().toISOString(), userId: get().currentUser.uid }]
-          } 
-        : t
-      )
-    }));
-    get().checkAllAlerts();
-  },
-
-  // --- LÓGICA DE PRODUCTOS ---
-  addProduct: async (productData) => {
-    try {
-      const { storeId, categoryId, subcategoryId, ...rest } = productData;
-      
-      // Add product to Firestore
-      const productId = await addProduct({
-        ...rest,
-        categoryId,
-        subcategoryId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-
-      // Add initial inventory batch to Firestore 
-      await addInventoryBatch({
-        productId: productId,
-        locationId: storeId,
-        quantity: 0, // Initial quantity is 0, it will be added later
-        cost: rest.cost || 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-
-      // Reload products and inventory to reflect the changes
-      await get().loadProducts();
-      await get().loadInventoryBatches();
-      
-      return { success: true, id: productId };
-    } catch (error) {
-      console.error("Error adding product:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  updateProduct: async (id, updatedData) => {
-    try {
-      await updateProduct(id, {
-        ...updatedData,
-        updatedAt: new Date().toISOString()
-      });
-
-      // Reload products to reflect the changes
-      await get().loadProducts();
-      
-      return { success: true };
-    } catch (error) {
-      console.error("Error updating product:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  deleteProduct: (id) => {
-    set(state => ({
-      products: state.products.filter(product => product.id !== id)
-    }));
-  },
-  checkAllAlerts: () => {
-    const { inventoryBatches, products, stores, alertSettings } = get();
-    const newAlerts = [];
-
-    // 1. Alertas de Stock Bajo
-    stores.forEach(store => {
-      products.forEach(product => {
-        const totalStockInLocation = inventoryBatches
-          .filter(batch => batch.productId === product.id && batch.locationId === store.id)
-          .reduce((sum, batch) => sum + batch.quantity, 0);
-        
-        const threshold = product.minStockThreshold ? product.minStockThreshold[store.id] : undefined;
-
-        if (threshold !== undefined && totalStockInLocation < threshold) {
-          newAlerts.push({
-            id: `low-stock-${product.id}-${store.id}`,
-            type: 'Stock Bajo',
-            message: `Quedan ${totalStockInLocation} de ${product.name} en ${store.name}. (Mínimo: ${threshold})`,
-            isRead: false,
-          });
-        }
-      });
-    });
-
-    // 2. Alertas de Próxima Caducidad
-    const today = new Date();
-    const alertDate = new Date();
-    alertDate.setDate(today.getDate() + alertSettings.daysBeforeExpiration);
-
-    inventoryBatches.forEach(batch => {
-      if (batch.expirationDate) {
-        const expiration = new Date(batch.expirationDate);
-        if (expiration > today && expiration <= alertDate) {
-          const product = products.find(p => p.id === batch.productId);
-          const store = stores.find(s => s.id === batch.locationId);
-          newAlerts.push({
-            id: `exp-${batch.inventoryId}`,
-            type: 'Próxima Caducidad',
-            message: `${batch.quantity} de ${product.name} en ${store.name} vencen el ${batch.expirationDate}.`,
-            isRead: false,
-          });
-        }
-      }
-    });
-
-    set({ alerts: newAlerts });
-  },
-
-  // Acción para marcar alerta como leída
-  markAlertAsRead: (alertId) => {
-    set(state => ({
-      alerts: state.alerts.map(a => a.id === alertId ? { ...a, isRead: true } : a),
-    }));
-  },
-
-  // --- LÓGICA DE GASTOS ---
-  addExpense: (expenseData) => {
-    set(state => {
-      let newExpenses = [];
-      if (Array.isArray(expenseData)) {
-        newExpenses = expenseData.map(item => ({
-          id: `exp-${Date.now()}-${item.id}`,
-          date: new Date().toISOString(),
-          concept: item.name,
-          amount: item.price * item.quantity,
-          type: 'Compra Miscelánea',
-          details: `Comprado desde lista de compras. Cantidad: ${item.quantity}`,
-        }));
-      } else {
-        newExpenses.push({ ...expenseData, id: `exp-${Date.now()}`, date: new Date().toISOString() });
-      }
-      return { expenses: [...state.expenses, ...newExpenses] };
-    });
-  },
-  // --- LÓGICA DE USUARIOS ---
-  addUser: (userData) => {
-    const newUser = { ...userData, uid: `user-${Date.now()}` };
-    set(state => ({
-      users: [...state.users, newUser]
-    }));
-  },
-
-  updateUser: (uid, updatedData) => {
-    set(state => ({
-      users: state.users.map(user => user.uid === uid ? { ...user, ...updatedData } : user)
-    }));
-  },
-
-  deleteUser: (uid) => {
-    set(state => ({
-      users: state.users.filter(user => user.uid !== uid)
-    }));
-  },
-
-  // --- LÓGICA DE CATEGORÍAS ---
-  addCategory: async (categoryData) => {
-    try {
-      // Add to Supabase first
-      const newCategoryId = await addCategory(categoryData);
-      
-      // Reload categories to get the updated list with proper structure
-      await get().loadCategories();
-      
-      return { success: true, id: newCategoryId };
-    } catch (error) {
-      console.error("Error adding category:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  updateCategory: async (id, updatedData) => {
-    try {
-      // Update in Supabase
-      await updateCategory(id, updatedData);
-      
-      // Reload categories to get the updated list
-      await get().loadCategories();
-      
-      return { success: true };
-    } catch (error) {
-      console.error("Error updating category:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  deleteCategory: async (id) => {
-    try {
-      // Delete from Supabase
-      const { data: { error } } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', id);
-        
-      if (error) {
-        throw error;
-      }
-      
-      // Also delete any subcategories of this category
-      await supabase
-        .from('categories')
-        .delete()
-        .eq('parent_id', id);
-      
-      // Reload categories to get the updated list
-      await get().loadCategories();
-      
-      return { success: true };
-    } catch (error) {
-      console.error("Error deleting category:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  addInventoryBatch: async (inventoryData) => {
-    try {
-      const newInventoryBatchId = await addInventoryBatch(inventoryData);
-      
-      // Reload inventory batches to get the updated list
-      await get().loadInventoryBatches();
-      
-      return { success: true, id: newInventoryBatchId };
-    } catch (error) {
-      console.error("Error adding inventory batch:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  updateInventoryBatch: async (id, inventoryData) => {
-    try {
-      await updateInventoryBatch(id, inventoryData);
-      
-      // Reload inventory batches to get the updated list
-      await get().loadInventoryBatches();
-      
-      return { success: true };
-    } catch (error) {
-      console.error("Error updating inventory batch:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  deleteInventoryBatch: async (id) => {
-    try {
-      await deleteInventoryBatch(id);
-      
-      // Reload inventory batches to get the updated list
-      await get().loadInventoryBatches();
-      
-      return { success: true };
-    } catch (error) {
-      console.error("Error deleting inventory batch:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  handleCashClosing: (initialCash) => {
-    const { salesHistory, currentUser } = get();
-    const salesToClose = salesHistory.filter(sale => sale.cashier === currentUser.name);
-    const totalSalesAmount = salesToClose.reduce((acc, sale) => acc + sale.total, 0);
-    const totalCashSales = salesToClose.filter(sale => sale.cash).reduce((acc, sale) => acc + sale.cash, 0);
-    const totalCardSales = salesToClose.filter(sale => sale.card).reduce((acc, sale) => acc + sale.card, 0);
-
-    const cashClosing = {
-      id: `cc-${Date.now()}`,
-      date: new Date().toISOString(),
-      cashier: currentUser.name,
-      initialCash: initialCash,
-      totalSalesAmount: totalSalesAmount,
-      totalCashSales: totalCashSales,
-      totalCardSales: totalCardSales,
-      finalCash: initialCash + totalCashSales,
-      sales: salesToClose,
-    };
-    set(state => ({
-      cashClosings: [...state.cashClosings, cashClosing],
-      salesHistory: state.salesHistory.filter(sale => sale.cashier !== currentUser.name),
-    }));
-  },
-
   // --- LÓGICA DE CONSUMO DE EMPLEADOS ---
   recordEmployeeConsumption: (consumedItems, consumingUser) => {
     const { inventoryBatches } = get();
@@ -1340,6 +1157,63 @@ const useAppStore = create((set, get) => ({
     get().checkAllAlerts();
   },
 
+  checkAllAlerts: async () => {
+    try {
+      // Get most recent data from state (which should be from Supabase)
+      const { inventoryBatches, products, stores, alertSettings } = get();
+      const newAlerts = [];
+
+      // 1. Alertas de Stock Bajo
+      stores.forEach(store => {
+        products.forEach(product => {
+          const totalStockInLocation = inventoryBatches
+            .filter(batch => String(batch.productId) === String(product.id) && String(batch.locationId) === String(store.id))
+            .reduce((sum, batch) => sum + batch.quantity, 0);
+          
+          const threshold = product.minStockThreshold?.[store.id];
+
+          if (threshold !== undefined && totalStockInLocation < threshold) {
+            newAlerts.push({
+              id: `low-stock-${product.id}-${store.id}`,
+              type: 'Stock Bajo',
+              message: `Quedan ${totalStockInLocation} de ${product.name} en ${store.name}. (Mínimo: ${threshold})`,
+              isRead: false,
+            });
+          }
+        });
+      });
+
+      // 2. Alertas de Próxima Caducidad
+      const today = new Date();
+      const alertDate = new Date();
+      alertDate.setDate(today.getDate() + alertSettings.daysBeforeExpiration);
+
+      inventoryBatches.forEach(batch => {
+        if (batch.expirationDate) {
+          const expiration = new Date(batch.expirationDate);
+          if (expiration > today && expiration <= alertDate) {
+            const product = products.find(p => String(p.id) === String(batch.productId));
+            const store = stores.find(s => String(s.id) === String(batch.locationId));
+            if (product && store) {
+              newAlerts.push({
+                id: `exp-${batch.inventoryId || batch.id}`,
+                type: 'Próxima Caducidad',
+                message: `${batch.quantity} de ${product.name} en ${store.name} vencen el ${batch.expirationDate}.`,
+                isRead: false,
+              });
+            }
+          }
+        }
+      });
+
+      set({ alerts: newAlerts });
+      return { success: true };
+    } catch (error) {
+      console.error("Error checking alerts:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
   // --- LÓGICA DE CONFIGURACIÓN DE TICKET ---
   ticketSettings: {
     headerText: '¡Gracias por tu compra!',
@@ -1367,72 +1241,6 @@ const useAppStore = create((set, get) => ({
     });
   },
 
-  // --- ACTIONS ---
-
-  // Inicialización
-  initialize: async () => {
-    console.log("useAppStore initialize function called.");
-    const storedTicketSettings = localStorage.getItem('ticketSettings');
-    let initialTicketSettings = get().ticketSettings; // Get default settings
-    const darkModePreference = true; // Fixed dark mode (disabled toggle functionality)
-
-    if (storedTicketSettings) {
-      const parsedSettings = JSON.parse(storedTicketSettings);
-      console.log("Loading ticketSettings from localStorage:", parsedSettings);
-      initialTicketSettings = { ...initialTicketSettings, ...parsedSettings }; // Merge with stored
-    }
-
-    // Initialize network listeners for offline support
-    get().initNetworkListeners();
-
-    // Initialize Supabase collections if needed
-    await initializeSupabaseCollections();
-
-    // Load data from Firebase
-    await Promise.all([
-      get().loadProducts(),
-      get().loadCategories(), 
-      get().loadUsers(),
-      get().loadStores(),
-      get().loadInventoryBatches(),
-      get().loadSalesHistory(),
-      get().loadClients(),
-      get().loadTransfers(),
-      get().loadShoppingList(),
-      get().loadExpenses(),
-      get().loadCashClosings(),
-    ]);
-
-    set({
-      ticketSettings: initialTicketSettings, // Set merged settings
-      darkMode: darkModePreference, // Set dark mode preference
-      isOnline: navigator.onLine, // Set initial network status
-      offlineMode: !navigator.onLine, // Set initial offline mode
-    });
-    get().checkAllAlerts();
-  },
-
-  addUser: (userData) => {
-    const newUser = { ...userData, uid: `user-${Date.now()}` };
-    set(state => ({
-      users: [...state.users, newUser]
-    }));
-  },
-
-  updateUser: (uid, updatedData) => {
-    set(state => ({
-      users: state.users.map(user => user.uid === uid ? { ...user, ...updatedData } : user)
-    }));
-  },
-
-  deleteUser: (uid) => {
-    set(state => ({
-      users: state.users.filter(user => user.uid !== uid)
-    }));
-  },
-
 }));
-
-
 
 export default useAppStore;

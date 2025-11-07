@@ -140,6 +140,26 @@ CREATE TABLE IF NOT EXISTS cash_closings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Tabla para configuración de balanzas
+CREATE TABLE IF NOT EXISTS scale_config (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    store_id VARCHAR(50) NOT NULL REFERENCES stores(id),
+    connection_type VARCHAR(20) DEFAULT 'simulate', -- 'serial', 'bluetooth', 'tcp', 'simulate'
+    settings JSONB, -- Configuración específica por tipo de conexión
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Tabla para logs de balanza
+CREATE TABLE IF NOT EXISTS scale_logs (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    store_id VARCHAR(50) NOT NULL REFERENCES stores(id),
+    event_type VARCHAR(50) NOT NULL, -- 'connection', 'disconnection', 'error', 'weight_reading'
+    details JSONB, -- Detalles específicos del evento
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Índices para mejorar el rendimiento
 CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_product_id ON inventory_batches(product_id);
@@ -148,3 +168,5 @@ CREATE INDEX IF NOT EXISTS idx_sales_store_date ON sales(store_id, date);
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date DESC);
 CREATE INDEX IF NOT EXISTS idx_transfers_status ON transfers(status);
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date DESC);
+CREATE INDEX IF NOT EXISTS idx_scale_config_store ON scale_config(store_id);
+CREATE INDEX IF NOT EXISTS idx_scale_logs_store_timestamp ON scale_logs(store_id, timestamp DESC);

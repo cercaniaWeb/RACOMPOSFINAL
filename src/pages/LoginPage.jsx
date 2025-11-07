@@ -30,9 +30,11 @@ const LoginPage = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-[#8A2BE2] rounded-lg flex items-center justify-center">
-              <ShoppingCart className="w-6 h-6 text-white" />
-            </div>
+            <img 
+              src="/src/utils/logopos.png" 
+              alt="Logo RACOM POS" 
+              className="w-12 h-12 object-contain"
+            />
             <h1 className="text-3xl font-bold text-[#F0F0F0]">RACOM POS</h1>
           </div>
           <p className="text-[#a0a0b0]">Sistema de Punto de Venta</p>

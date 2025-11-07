@@ -29,7 +29,7 @@ function isValidKey(key) {
 class OfflineStorage {
   constructor() {
     this.dbName = 'POSOfflineDB';
-    this.version = 2;  // Increased version to match existing DB
+    this.version = 3;  // Incremented version to update schema
     this.db = null;
   }
   
@@ -60,10 +60,13 @@ class OfflineStorage {
           productsStore.createIndex('category', 'category', { unique: false });
         }
 
-        if (!db.objectStoreNames.contains('inventory')) {
-          const inventoryStore = db.createObjectStore('inventory', { keyPath: 'id' });
-          inventoryStore.createIndex('productId', 'productId', { unique: false });
-          inventoryStore.createIndex('locationId', 'locationId', { unique: false });
+        if (db.objectStoreNames.contains('inventory')) {
+            db.deleteObjectStore('inventory');
+        }
+        if (!db.objectStoreNames.contains('inventoryBatches')) {
+          const inventoryBatchesStore = db.createObjectStore('inventoryBatches', { keyPath: 'inventoryId' });
+          inventoryBatchesStore.createIndex('productId', 'productId', { unique: false });
+          inventoryBatchesStore.createIndex('locationId', 'locationId', { unique: false });
         }
 
         if (!db.objectStoreNames.contains('sales')) {
@@ -167,6 +170,8 @@ class OfflineStorage {
       // Create a data object that includes the key as id if the store expects it
       const dataToStore = storeName === 'carts' && key === 'current_cart' 
         ? { ...data, id: key }  // For cart data, store as keyed object
+        : storeName === 'inventoryBatches'
+        ? { ...data, inventoryId: key || data.inventoryId } // For inventory batches, use inventoryId
         : { ...data, id: key || data.id }; // For other data, use provided key or data's existing id
       
       // Check if store expects a specific key path

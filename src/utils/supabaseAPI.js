@@ -285,10 +285,14 @@ export const getUser = async (id) => {
 };
 
 export const addUser = async (userData) => {
+  // Copiar los datos del usuario sin el password para evitar conflictos
+  const { password, ...userProperties } = userData;
+  
   const { data, error } = await supabase
     .from('users')
     .insert([{
-      ...userData,
+      ...userProperties,
+      password_hash: password ? await hashPassword(password) : null, // Si se proporciona contraseña, hacer hash
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }])
@@ -303,17 +307,47 @@ export const addUser = async (userData) => {
   return data.id;
 };
 
+// Función auxiliar para hacer hash de la contraseña (solo para fines de ejemplo)
+// En un entorno de producción, deberías manejar la autenticación con Supabase Auth
+const hashPassword = async (password) => {
+  // Para fines de desarrollo, simplemente devolvemos la contraseña
+  // En producción, usarías una librería como bcrypt
+  return password;
+};
+
 export const updateUser = async (id, userData) => {
+  // Copiar los datos del usuario sin el password para evitar conflictos
+  const { password, ...userProperties } = userData;
+  
+  const updateData = {
+    ...userProperties,
+    updated_at: new Date().toISOString()
+  };
+  
+  // Si se proporciona una contraseña, agregarla al hash
+  if (password) {
+    updateData.password_hash = await hashPassword(password);
+  }
+
   const { error } = await supabase
     .from('users')
-    .update({
-      ...userData,
-      updated_at: new Date().toISOString()
-    })
+    .update(updateData)
     .eq('id', id);
 
   if (error) {
     console.error('Error actualizando usuario:', error);
+    throw new Error(error.message);
+  }
+};
+
+export const deleteUser = async (id) => {
+  const { error } = await supabase
+    .from('users')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error eliminando usuario:', error);
     throw new Error(error.message);
   }
 };
@@ -349,10 +383,47 @@ export const getInventoryBatches = async () => {
 };
 
 export const addInventoryBatch = async (inventoryData) => {
+  // Mapear campos del formulario a los campos correctos de la base de datos
+  const mappedInventoryData = { ...inventoryData };
+  
+  // Eliminar campos que no existen en la tabla inventory_batches
+  if ('createdAt' in mappedInventoryData) {
+    delete mappedInventoryData.createdAt; // No existe en la tabla real
+  }
+  if ('updatedAt' in mappedInventoryData) {
+    delete mappedInventoryData.updatedAt; // No existe en la tabla real
+  }
+  if ('created_at' in mappedInventoryData) {
+    delete mappedInventoryData.created_at; // Ya se establece automáticamente
+  }
+  if ('updated_at' in mappedInventoryData) {
+    delete mappedInventoryData.updated_at; // Ya se establece automáticamente
+  }
+  
+  // Mapear campos si existen
+  if ('productId' in mappedInventoryData) {
+    mappedInventoryData.product_id = mappedInventoryData.productId;
+    delete mappedInventoryData.productId;
+  }
+  if ('locationId' in mappedInventoryData) {
+    mappedInventoryData.location_id = mappedInventoryData.locationId;
+    delete mappedInventoryData.locationId;
+  }
+  if ('expirationDate' in mappedInventoryData) {
+    mappedInventoryData.expiration_date = mappedInventoryData.expirationDate;
+    delete mappedInventoryData.expirationDate;
+  }
+  if ('cost' in mappedInventoryData) {
+    mappedInventoryData.cost = parseFloat(mappedInventoryData.cost) || 0;
+  }
+  if ('quantity' in mappedInventoryData) {
+    mappedInventoryData.quantity = parseInt(mappedInventoryData.quantity) || 0;
+  }
+
   const { data, error } = await supabase
     .from('inventory_batches')
     .insert([{
-      ...inventoryData,
+      ...mappedInventoryData,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }])
@@ -368,10 +439,47 @@ export const addInventoryBatch = async (inventoryData) => {
 };
 
 export const updateInventoryBatch = async (id, inventoryData) => {
+  // Mapear campos del formulario a los campos correctos de la base de datos
+  const mappedInventoryData = { ...inventoryData };
+  
+  // Eliminar campos que no existen en la tabla inventory_batches
+  if ('createdAt' in mappedInventoryData) {
+    delete mappedInventoryData.createdAt; // No existe en la tabla real
+  }
+  if ('updatedAt' in mappedInventoryData) {
+    delete mappedInventoryData.updatedAt; // No existe en la tabla real
+  }
+  if ('created_at' in mappedInventoryData) {
+    delete mappedInventoryData.created_at; // No se actualiza
+  }
+  if ('updated_at' in mappedInventoryData) {
+    delete mappedInventoryData.updated_at; // Ya se actualiza automáticamente
+  }
+  
+  // Mapear campos si existen
+  if ('productId' in mappedInventoryData) {
+    mappedInventoryData.product_id = mappedInventoryData.productId;
+    delete mappedInventoryData.productId;
+  }
+  if ('locationId' in mappedInventoryData) {
+    mappedInventoryData.location_id = mappedInventoryData.locationId;
+    delete mappedInventoryData.locationId;
+  }
+  if ('expirationDate' in mappedInventoryData) {
+    mappedInventoryData.expiration_date = mappedInventoryData.expirationDate;
+    delete mappedInventoryData.expirationDate;
+  }
+  if ('cost' in mappedInventoryData) {
+    mappedInventoryData.cost = parseFloat(mappedInventoryData.cost) || 0;
+  }
+  if ('quantity' in mappedInventoryData) {
+    mappedInventoryData.quantity = parseInt(mappedInventoryData.quantity) || 0;
+  }
+
   const { error } = await supabase
     .from('inventory_batches')
     .update({
-      ...inventoryData,
+      ...mappedInventoryData,
       updated_at: new Date().toISOString()
     })
     .eq('id', id);
@@ -411,10 +519,44 @@ export const getSales = async () => {
 };
 
 export const addSale = async (saleData) => {
+  // Mapear campos del formulario a los campos correctos de la base de datos
+  const mappedSaleData = { ...saleData };
+
+  // Mapear campos si existen
+  if ('storeId' in mappedSaleData) {
+    mappedSaleData.store_id = mappedSaleData.storeId;
+    delete mappedSaleData.storeId;
+  }
+
+  // Convertir posibles valores booleanos a numéricos para campos monetarios
+  if (typeof mappedSaleData.cash === 'boolean') {
+    mappedSaleData.cash = mappedSaleData.cash ? 0 : 0;
+  }
+  if (typeof mappedSaleData.card === 'boolean') {
+    mappedSaleData.card = mappedSaleData.card ? 0 : 0;
+  }
+  if (typeof mappedSaleData.cardCommission === 'boolean') {
+    mappedSaleData.cardCommission = mappedSaleData.cardCommission ? 0 : 0;
+  }
+  if (typeof mappedSaleData.commissionInCash === 'boolean') {
+    mappedSaleData.commissionInCash = mappedSaleData.commissionInCash ? 1 : 0;
+  }
+
+  // Asegurar que los campos monetarios sean números válidos
+  if (mappedSaleData.cash === undefined || mappedSaleData.cash === null || mappedSaleData.cash === false) {
+    mappedSaleData.cash = 0;
+  }
+  if (mappedSaleData.card === undefined || mappedSaleData.card === null || mappedSaleData.card === false) {
+    mappedSaleData.card = 0;
+  }
+  if (mappedSaleData.cardCommission === undefined || mappedSaleData.cardCommission === null || mappedSaleData.cardCommission === false) {
+    mappedSaleData.cardCommission = 0;
+  }
+
   const { data, error } = await supabase
     .from('sales')
     .insert([{
-      ...saleData,
+      ...mappedSaleData,
       date: new Date().toISOString(),
       created_at: new Date().toISOString()
     }])

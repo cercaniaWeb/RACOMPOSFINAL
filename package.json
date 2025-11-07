@@ -8,7 +8,11 @@
     "build": "vite build",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "build-pwa": "vite build && cp public/manifest.json dist/ && cp public/service-worker.js dist/ && cp public/logo192.png dist/ && cp public/logo512.png dist/ && cp public/favicon.ico dist/"
+    "test": "vitest",
+    "test:run": "vitest run",
+    "build-pwa": "vite build && cp public/manifest.json dist/ && cp public/service-worker.js dist/ && cp public/logo192.png dist/ && cp public/logo512.png dist/ && cp public/favicon.ico dist/",
+    "setup-db": "node scripts/setup-db-config.js",
+    "validate-db": "node scripts/setup-db-config.js validate"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.76.1",
@@ -25,19 +29,24 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.15",
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.6",
     "globals": "^16.4.0",
+    "jsdom": "^27.1.0",
     "lucide-react": "^0.544.0",
     "postcss": "^8.4.27",
     "tailwindcss": "^3.3.0",
     "vite": "^5.2.0",
-    "vite-plugin-pwa": "^0.20.5"
+    "vite-plugin-pwa": "^0.20.5",
+    "vitest": "^4.0.7"
   }
 }
