@@ -376,41 +376,41 @@ export default function POSPage() {
   const canAccessEmployeeConsumption = currentUser && (currentUser.role === 'admin' || currentUser.role === 'gerente');
 
   return (
-      <main className="flex-1 flex flex-col md:flex-row gap-4 p-4 h-screen bg-[#1D1D27] overflow-hidden">
-        <div className="w-full md:w-2/3 flex flex-col gap-4 h-full">
-          <header className="flex justify-between items-center text-[#f5f5f5] flex-shrink-0">
+      <main className="flex-1 flex flex-col md:flex-row gap-4 p-4 bg-[#1D1D27] overflow-hidden h-full">
+        <div className="w-full md:w-2/3 flex flex-col gap-3 min-h-0 flex-1">
+          <header className="flex justify-between items-center text-[#f5f5f5] flex-shrink-0 pb-1">
             <div>
-              <h1 className="text-xl font-bold text-[#F0F0F0]">Punto de Venta</h1>
+              <h1 className="text-lg font-bold text-[#F0F0F0]">Punto de Venta</h1>
               <p className="text-xs text-[#a0a0b0]">Tienda: {currentUser?.storeName || 'Principal'}</p>
               {offlineMode && (
-                <div className="flex items-center mt-1">
-                  <div className="w-2 h-2 bg-[#ff5252] rounded-full mr-2"></div>
-                  <span className="text-[0.6rem] text-[#ff5252] font-medium">Modo Sin Conexión</span>
+                <div className="flex items-center mt-0.5">
+                  <div className="w-1.5 h-1.5 bg-[#ff5252] rounded-full mr-1.5"></div>
+                  <span className="text-[0.5rem] text-[#ff5252] font-medium">Modo Sin Conexión</span>
                 </div>
               )}
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               {!isOnline && (
-                <div className="flex items-center bg-[#ffab00]/20 text-[#ffab00] px-2 py-1 rounded-md text-[0.6rem] font-medium border border-[#ffab00]/30">
-                  <Zap size={12} className="mr-1" />
+                <div className="flex items-center bg-[#ffab00]/20 text-[#ffab00] px-1.5 py-0.5 rounded text-[0.5rem] font-medium border border-[#ffab00]/30">
+                  <Zap size={10} className="mr-1" />
                   <span>Sin conexión</span>
                 </div>
               )}
 
               {/* Scale Status Indicator */}
-              <div className={`flex items-center px-2 py-1 rounded-md text-[0.6rem] font-medium border ${
+              <div className={`flex items-center px-1.5 py-0.5 rounded text-[0.5rem] font-medium border ${
                 scaleStatus === 'connected' 
                   ? 'bg-green-500/20 text-green-500 border-green-500/30' 
                   : scaleStatus === 'error' 
                     ? 'bg-red-500/20 text-red-500 border-red-500/30' 
                     : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30'
               }`}>
-                {scaleStatus === 'connected' ? <Wifi size={12} className="mr-1" /> : <WifiOff size={12} className="mr-1" />}
+                {scaleStatus === 'connected' ? <Wifi size={10} className="mr-1" /> : <WifiOff size={10} className="mr-1" />}
                 <span>Balance: {scaleStatus}</span>
               </div>
 
-              <Button onClick={toggleFullscreen} variant="outline" className="p-1.5">
-                <Maximize size={16} />
+              <Button onClick={toggleFullscreen} variant="outline" className="p-1">
+                <Maximize size={14} />
               </Button>
             </div>
           </header>
@@ -426,7 +426,7 @@ export default function POSPage() {
                     <th className="py-2 px-3 text-right text-[#a0a0b0] text-[0.7rem] font-semibold uppercase tracking-wider">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="overflow-y-auto flex-1 min-h-0" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+                <tbody className="overflow-y-auto flex-1 min-h-0 max-h-60">
                   {cart.map((item) => (
                     <tr key={item.id} className="border-b border-[#3a3a4a] last:border-none">
                       <td className="py-2 px-3">
@@ -476,15 +476,15 @@ export default function POSPage() {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-2 mt-2 flex-shrink-0">
-              <Button onClick={() => setIsPreviousSalesModalOpen(true)} variant="outline" className="font-medium flex-1 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a] text-sm">
+              <Button onClick={() => setIsPreviousSalesModalOpen(true)} variant="outline" className="font-medium flex-1 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a] text-sm transition-all duration-200 hover:scale-[1.02]">
                 <Printer size={14} className="mr-1.5" />
                 Ventas Anteriores
               </Button>
-              <Button onClick={() => setIsCashClosingModalOpen(true)} variant="outline" className="font-medium flex-1 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a] text-sm">
+              <Button onClick={() => setIsCashClosingModalOpen(true)} variant="outline" className="font-medium flex-1 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a] text-sm transition-all duration-200 hover:scale-[1.02]">
                 <FileText size={14} className="mr-1.5" />
                 Cierre de Caja
               </Button>
-              <Button onClick={() => setIsWithdrawalModalOpen(true)} variant="outline" className="font-medium flex-1 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a] text-sm">
+              <Button onClick={() => setIsWithdrawalModalOpen(true)} variant="outline" className="font-medium flex-1 text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a] text-sm transition-all duration-200 hover:scale-[1.02]">
                 <CreditCard size={14} className="mr-1.5" />
                 Retiro
               </Button>
@@ -492,7 +492,7 @@ export default function POSPage() {
             
             <Button 
               onClick={handleCheckoutClick} 
-              className="w-full mt-2 py-2 text-base bg-[#8A2BE2] hover:bg-purple-700 flex-shrink-0" 
+              className="w-full mt-2 py-2 text-base bg-[#8A2BE2] hover:bg-purple-700 flex-shrink-0 transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg" 
               size="lg"
               variant="primary"
               disabled={offlineMode && cart.length === 0}
@@ -502,12 +502,12 @@ export default function POSPage() {
           </div>
         </div>
 
-        <div className="w-full md:w-1/3 flex flex-col bg-[#282837] rounded-lg border border-[#3a3a4a] p-3 min-h-0 h-full">
+        <div className="w-full md:w-1/3 flex flex-col bg-[#282837] rounded-lg border border-[#3a3a4a] p-3 min-h-0 flex-1">
           <div className="flex justify-between items-center mb-3 flex-shrink-0">
             <div className="flex space-x-1.5">
-              <Button onClick={() => setIsCalculatorModalOpen(true)} size="sm" className="bg-[#1D1D27] hover:bg-[#3a3a4a] text-[#F0F0F0] border border-[#3a3a4a]"><Calculator size={16} /></Button>
-              <Button onClick={() => setIsProductCollectionModalOpen(true)} size="sm" className="bg-[#1D1D27] hover:bg-[#3a3a4a] text-[#F0F0F0] border border-[#3a3a4a]"><Package size={16} /></Button>
-              <Button onClick={toggleScanning} size="sm" className="bg-[#1D1D27] hover:bg-[#3a3a4a] text-[#F0F0F0] border border-[#3a3a4a]">
+              <Button onClick={() => setIsCalculatorModalOpen(true)} size="sm" className="bg-[#1D1D27] hover:bg-[#3a3a4a] text-[#F0F0F0] border border-[#3a3a4a] transition-all duration-200 hover:scale-105"><Calculator size={16} /></Button>
+              <Button onClick={() => setIsProductCollectionModalOpen(true)} size="sm" className="bg-[#1D1D27] hover:bg-[#3a3a4a] text-[#F0F0F0] border border-[#3a3a4a] transition-all duration-200 hover:scale-105"><Package size={16} /></Button>
+              <Button onClick={toggleScanning} size="sm" className="bg-[#1D1D27] hover:bg-[#3a3a4a] text-[#F0F0F0] border border-[#3a3a4a] transition-all duration-200 hover:scale-105">
                 <Scan size={16} />
               </Button>
             </div>
@@ -555,23 +555,23 @@ export default function POSPage() {
           )}
 
           <div className="flex flex-wrap gap-1.5 mb-3 flex-shrink-0">
-            {categories.slice(0, 6).map(c => <Button key={c.id} variant="outline" size="sm" className="py-0.5 font-medium text-xs whitespace-nowrap text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]">{c.name}</Button>)}
+            {categories.slice(0, 6).map(c => <Button key={c.id} variant="outline" size="sm" className="py-0.5 font-medium text-xs whitespace-nowrap text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a] transition-all duration-200 hover:scale-105">{c.name}</Button>)}
             {categories.length > 6 && (
-              <Button variant="outline" size="sm" className="py-0.5 font-medium text-xs text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a]" onClick={() => setIsProductCollectionModalOpen(true)}>
+              <Button variant="outline" size="sm" className="py-0.5 font-medium text-xs text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a] transition-all duration-200 hover:scale-105" onClick={() => setIsProductCollectionModalOpen(true)}>
                 +{categories.length - 6}
               </Button>
             )}
           </div>
           
-          <div className="flex-1 overflow-hidden min-h-0">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 h-full" style={{ height: 'calc(100% - 20px)' }}>
+          <div className="flex-1 overflow-hidden min-h-0" style={{ minHeight: 0, height: 'calc(100% - 150px)' }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 overflow-y-auto" style={{ height: '100%', padding: '6px', maxHeight: '100%' }}>
               {productsForSale.map(p => (
                 <div 
                   key={p.id} 
-                  className={`relative rounded-md p-1.5 text-center cursor-pointer transition-all duration-200 hover:scale-[1.02] border ${
-                    p.stockInLocation === 0 ? "bg-[#3a3a4a] border-[#5c5c6c] cursor-not-allowed opacity-60" : "bg-[#1D1D27] border-[#3a3a4a] hover:bg-[#3a3a4a]"
+                  className={`relative rounded-lg p-3 text-center cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:-translate-y-1 shadow-md border ${
+                    p.stockInLocation === 0 ? "bg-[#3a3a4a] border-[#5c5c6c] cursor-not-allowed opacity-60" : "bg-[#282837] border-[#3a3a4a] hover:bg-[#3a3a4a] hover:border-blue-400"
                   } ${
-                    (p.unit === "kg" || p.unit === "gr" || p.unit === "lb" || p.unit === "oz") ? "ring-1 ring-[#8A2BE2] ring-opacity-50" : ""
+                    (p.unit === "kg" || p.unit === "gr" || p.unit === "lb" || p.unit === "oz") ? "ring-2 ring-[#8A2BE2] ring-opacity-50" : ""
                   }`}
                   onClick={() => {
                     // En modo de prueba, permitir agregar productos al carrito incluso si no hay stock
@@ -590,7 +590,7 @@ export default function POSPage() {
                     }
                   }}
                 >
-                   <div className={`absolute top-0.5 right-0.5 text-[0.6rem] font-bold px-1 py-0.5 rounded-full ${
+                   <div className={`absolute top-1 right-1 text-[0.7rem] font-bold px-2 py-1 rounded-full ${
                      p.stockInLocation === 0 ? "bg-[#666666] text-white" :
                      p.stockInLocation < 10 ? "bg-[#ff5252] text-white" : 
                      p.stockInLocation < 20 ? "bg-[#ffab00] text-[#1f1f1f]" : 
@@ -598,24 +598,24 @@ export default function POSPage() {
                    }`}>
                     {p.stockInLocation} {p.unit === 'unidad' ? '' : p.unit || ''}
                   </div>
-                  <div className="bg-[#3a3a4a] rounded-md w-10 h-10 mx-auto mb-1 flex items-center justify-center">
+                  <div className="bg-[#3a3a4a] rounded-lg w-14 h-14 mx-auto mb-2 flex items-center justify-center">
                     {p.image ? (
-                      <img src={p.image} alt={p.name} className="w-6 h-6 object-contain rounded" />
+                      <img src={p.image} alt={p.name} className="w-10 h-10 object-contain rounded" />
                     ) : (
-                      <Package className="w-4 h-4 text-[#a0a0b0]" />
+                      <Package className="w-8 h-8 text-[#a0a0b0]" />
                     )}
                   </div>
-                  <p className="text-[0.7rem] font-semibold text-[#F0F0F0] truncate">{p.name}</p>
-                  <p className="text-[0.8rem] font-bold text-[#8A2BE2]">${p.price}{(p.unit === 'kg' || p.unit === 'gr' || p.unit === 'lb' || p.unit === 'oz') ? `/${p.unit}` : ''}</p>
+                  <p className="text-[0.85rem] font-semibold text-[#F0F0F0] truncate">{p.name}</p>
+                  <p className="text-[0.9rem] font-bold text-[#8A2BE2]">${p.price}{(p.unit === 'kg' || p.unit === 'gr' || p.unit === 'lb' || p.unit === 'oz') ? `/${p.unit}` : ''}</p>
                   {p.unit !== 'unidad' && (p.unit === 'kg' || p.unit === 'gr' || p.unit === 'lb' || p.unit === 'oz') && (
-                    <p className="text-[0.6rem] text-[#a0a0b0]">Por {p.unit}</p>
+                    <p className="text-[0.7rem] text-[#a0a0b0] mt-1">Por {p.unit}</p>
                   )}
                 </div>
               ))}
             </div>
           </div>
           
-          <Button className="w-full mt-3 py-2 font-semibold flex items-center justify-center space-x-1.5 bg-[#8A2BE2] hover:bg-purple-700 text-sm flex-shrink-0" onClick={() => setIsProductFormModalOpen(true)}>
+          <Button className="w-full mt-3 py-2 font-semibold flex items-center justify-center space-x-1.5 bg-[#8A2BE2] hover:bg-purple-700 text-sm flex-shrink-0 shadow-md hover:shadow-lg transition-all duration-200" onClick={() => setIsProductFormModalOpen(true)}>
             <Plus size={14} />
             <span>Agregar Producto</span>
           </Button>

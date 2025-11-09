@@ -149,7 +149,7 @@ const WeightModal = ({ isOpen, onClose, product, onAddToCart }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-[#282837] rounded-xl border border-[#3a3a4a] w-full max-w-md p-6">
+      <div className="bg-[#282837] rounded-xl border border-[#3a3a4a] w-full max-w-md p-6 shadow-2xl">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-[#F0F0F0]">Pesar Producto</h3>
           <div className="flex items-center space-x-2">
@@ -314,49 +314,5 @@ const WeightModal = ({ isOpen, onClose, product, onAddToCart }) => {
   );
 };
 
-// Error boundary class component
-class WeightModalErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI.
-    return { hasError: true };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    // You can also log the error to an error reporting service
-    console.error('WeightModal error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      // Fallback UI when there's an error
-      return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#282837] rounded-xl border border-[#3a3a4a] w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-[#F0F0F0]">Pesar Producto</h3>
-            </div>
-            <div className="text-center py-8">
-              <p className="text-[#F0F0F0] mb-4">Error al cargar el panel de peso</p>
-              <button 
-                onClick={() => this.setState({ hasError: false })}
-                className="bg-[#8A2BE2] hover:bg-purple-700 text-white py-2 px-4 rounded-lg"
-              >
-                Intentar de nuevo
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Render the actual component when there's no error
-    return <WeightModal {...this.props} />;
-  }
-}
-
-export default WeightModalErrorBoundary;
+// Export the main WeightModal component
+export default WeightModal;

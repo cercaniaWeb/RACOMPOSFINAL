@@ -26,6 +26,7 @@ import {
   getShoppingList,
   getExpenses,
   getCashClosings,
+  addCashClosing,
   getSalesReport,
   initializeSupabaseCollections
 } from '../utils/supabaseAPI';
@@ -579,6 +580,22 @@ const useAppStore = create((set, get) => ({
       set({ cashClosings });
     } catch (error) {
       console.error("Error loading cash closings:", error);
+    }
+  },
+
+  addCashClosing: async (cashClosingData) => {
+    try {
+      const newCashClosing = await addCashClosing(cashClosingData);
+      
+      // Update the local state to include the new cash closing
+      set(state => ({
+        cashClosings: [newCashClosing, ...state.cashClosings]
+      }));
+      
+      return newCashClosing;
+    } catch (error) {
+      console.error("Error adding cash closing:", error);
+      throw error;
     }
   },
 

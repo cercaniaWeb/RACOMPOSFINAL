@@ -21,6 +21,7 @@ import {
   getShoppingList,
   getExpenses,
   getCashClosings,
+  addCashClosing,
   initializeSupabaseCollections
 } from './supabaseAPI';
 

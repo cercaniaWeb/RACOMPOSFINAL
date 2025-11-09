@@ -772,6 +772,26 @@ export const getCashClosings = async () => {
   return data;
 };
 
+export const addCashClosing = async (cashClosingData) => {
+  // Add timestamp
+  const dataToInsert = {
+    ...cashClosingData,
+    created_at: new Date().toISOString(),
+  };
+  
+  const { data, error } = await supabase
+    .from('cash_closings')
+    .insert([dataToInsert])
+    .select();
+
+  if (error) {
+    console.error('Error guardando cierre de caja:', error);
+    throw error;
+  }
+
+  return data[0];
+};
+
 // Inicializar colecciones/tablas por defecto si no existen
 export const initializeSupabaseCollections = async () => {
   try {

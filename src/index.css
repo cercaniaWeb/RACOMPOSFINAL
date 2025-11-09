@@ -9,7 +9,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%); /* Fondo oscuro predeterminado según guía */
   background-attachment: fixed;
-  line-height: 1.5;
+  line-height: 0.5;
 }
 
 /* Jerarquía tipográfica mejorada según guía de estilos */
