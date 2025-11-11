@@ -53,6 +53,7 @@ const LoginPage = () => {
                   placeholder="Ingresa tu email"
                   className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg pl-10 pr-4 py-3 focus:border-[#8A2BE2] outline-none transition-colors"
                   required
+                  data-testid="email-input"
                 />
               </div>
             </div>
@@ -68,12 +69,13 @@ const LoginPage = () => {
                   placeholder="Ingresa tu contraseña"
                   className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg pl-10 pr-4 py-3 focus:border-[#8A2BE2] outline-none transition-colors"
                   required
+                  data-testid="password-input"
                 />
               </div>
             </div>
 
             {error && ( // Display error message
-              <div className="text-red-500 text-sm text-center">
+              <div className="text-red-500 text-sm text-center" data-testid="error-message">
                 {error}
               </div>
             )}
@@ -81,6 +83,7 @@ const LoginPage = () => {
             <button
               type="submit"
               className="w-full bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition-colors"
+              data-testid="login-button"
             >
               Iniciar Sesión
             </button>

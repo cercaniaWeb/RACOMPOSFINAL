@@ -32,6 +32,14 @@ CREATE TABLE IF NOT EXISTS products (
     min_stock_threshold JSONB, -- Para almacenar umbrales por tienda
     description TEXT,
     image_url TEXT,
+    brand VARCHAR(255), -- Marca del producto
+    supplier_id VARCHAR(100), -- ID del proveedor
+    weight DECIMAL(10, 3), -- Peso del producto
+    dimensions JSONB, -- Dimensiones {length, width, height}
+    tax_rate DECIMAL(5, 2) DEFAULT 0, -- Tasa de impuesto
+    is_active BOOLEAN DEFAULT true, -- Si el producto está activo
+    notes TEXT, -- Notas adicionales
+    tags JSONB, -- Etiquetas del producto
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

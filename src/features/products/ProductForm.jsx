@@ -3,7 +3,7 @@ import { X, Camera, Package, MapPin, AlertCircle, CheckCircle, Wifi, WifiOff } f
 import useAppStore from '../../store/useAppStore';
 import { validateProduct } from './productValidation';
 
-const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
+const ProductForm = ({ product, onClose, onSuccess, mode = 'modal', onSave }) => {
   const { 
     categories, 
     stores, 
@@ -211,7 +211,9 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
       // Add inventory data to product data
       productData.inventoryData = inventoryData;
 
-      if (product) {
+      if (onSave) {
+        await onSave(productData);
+      } else if (product) {
         // Update existing product
         await storeUpdateProduct(product.id, productData);
       } else {
@@ -224,7 +226,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
 
       // Handle inventory updates (this would require additional store actions)
       // For now, we'll just call onSuccess to refresh the parent component
-      onSuccess && onSuccess(productData);
+      onSuccess && onSuccess(product ? product.id : result.id);
       
       // Show offline warning if applicable
       if (offlineMode) {
@@ -301,6 +303,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                   errors.name ? 'border-red-500' : 'border-[#3a3a4a]'
                 } rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors`}
                 placeholder="Nombre del producto"
+                data-testid="product-name-input"
               />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
             </div>
@@ -316,6 +319,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                   errors.sku ? 'border-red-500' : 'border-[#3a3a4a]'
                 } rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors`}
                 placeholder="Código SKU"
+                data-testid="product-sku-input"
               />
               {errors.sku && <p className="text-red-500 text-xs mt-1">{errors.sku}</p>}
             </div>
@@ -332,6 +336,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                     errors.barcode ? 'border-red-500' : 'border-[#3a3a4a]'
                   } rounded-lg pl-10 pr-4 py-2 focus:border-[#8A2BE2] outline-none transition-colors`}
                   placeholder="Escanear o ingresar código"
+                  data-testid="product-barcode-input"
                 />
                 <Camera className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#a0a0b0] w-4 h-4" />
               </div>
@@ -355,6 +360,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                 className={`w-full bg-[#1D1D27] text-[#F0F0F0] border ${
                   errors.price ? 'border-red-500' : 'border-[#3a3a4a]'
                 } rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors`}
+                data-testid="product-price-input"
               />
               {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
             </div>
@@ -371,6 +377,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                 className={`w-full bg-[#1D1D27] text-[#F0F0F0] border ${
                   errors.cost ? 'border-red-500' : 'border-[#3a3a4a]'
                 } rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors`}
+                data-testid="product-cost-input"
               />
               {errors.cost && <p className="text-red-500 text-xs mt-1">{errors.cost}</p>}
             </div>
@@ -384,6 +391,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                 className={`w-full bg-[#1D1D27] text-[#F0F0F0] border ${
                   errors.categoryId ? 'border-red-500' : 'border-[#3a3a4a]'
                 } rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors`}
+                data-testid="product-category-select"
               >
                 <option value="">Selecciona una categoría</option>
                 {categories.map(category => (
@@ -407,6 +415,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                 value={formData.unit}
                 onChange={handleChange}
                 className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                data-testid="product-unit-select"
               >
                 <option value="unidad">Unidad</option>
                 <option value="kg">Kilogramo (kg)</option>
@@ -429,6 +438,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                 onChange={handleChange}
                 className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
                 placeholder="Marca del producto"
+                data-testid="product-brand-input"
               />
             </div>
             
@@ -441,6 +451,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                 onChange={handleChange}
                 className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
                 placeholder="ID o nombre del proveedor"
+                data-testid="product-supplier-input"
               />
             </div>
             
@@ -457,6 +468,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                       type="button" 
                       onClick={() => removeTag(tag)}
                       className="ml-1 text-white hover:text-red-400"
+                      data-testid={`product-tag-remove-${tag}`}
                     >
                       ×
                     </button>
@@ -468,6 +480,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                 onKeyDown={handleTagChange}
                 className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
                 placeholder="Presiona Enter para agregar etiquetas"
+                data-testid="product-tags-input"
               />
             </div>
           </div>
@@ -482,6 +495,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                 onChange={handleChange}
                 className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
                 placeholder="URL de la imagen del producto"
+                data-testid="product-image-input"
               />
             </div>
             
@@ -496,6 +510,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                   min="0"
                   step="0.01"
                   className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                  data-testid="product-weight-input"
                 />
               </div>
               
@@ -509,6 +524,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                   min="0"
                   step="0.1"
                   className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                  data-testid="product-length-input"
                 />
               </div>
               
@@ -522,6 +538,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                   min="0"
                   step="0.1"
                   className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                  data-testid="product-width-input"
                 />
               </div>
               
@@ -535,6 +552,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                   min="0"
                   step="0.1"
                   className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                  data-testid="product-height-input"
                 />
               </div>
               
@@ -549,6 +567,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                   max="100"
                   step="0.1"
                   className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                  data-testid="product-taxrate-input"
                 />
               </div>
               
@@ -559,6 +578,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                   checked={formData.isActive}
                   onChange={handleChange}
                   className="h-4 w-4 text-[#8A2BE2] focus:ring-[#8A2BE2] border-[#3a3a4a] rounded bg-[#1D1D27]"
+                  data-testid="product-isactive-checkbox"
                 />
                 <label className="ml-2 block text-sm text-[#F0F0F0]">
                   Producto Activo
@@ -578,6 +598,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
             rows="3"
             className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none resize-none transition-colors"
             placeholder="Descripción detallada del producto"
+            data-testid="product-description-textarea"
           ></textarea>
         </div>
 
@@ -592,7 +613,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
             {inventoryData.map((item, index) => {
               const store = stores.find(s => s.id === item.locationId);
               return (
-                <div key={item.locationId} className="border border-[#3a3a4a] rounded-lg p-4">
+                <div key={item.locationId} className="border border-[#3a3a4a] rounded-lg p-4" data-testid={`inventory-item-${item.locationId}`}>
                   <div className="flex items-center mb-3">
                     <MapPin className="w-4 h-4 text-[#a0a0b0] mr-2" />
                     <h5 className="font-medium text-[#F0F0F0]">{store?.name || 'Almacén'}</h5>
@@ -607,6 +628,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                         onChange={(e) => handleInventoryChange(item.locationId, 'quantity', e.target.value)}
                         min="0"
                         className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                        data-testid={`inventory-quantity-input-${item.locationId}`}
                       />
                     </div>
                     
@@ -619,6 +641,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                         min="0"
                         step="0.01"
                         className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                        data-testid={`inventory-cost-input-${item.locationId}`}
                       />
                     </div>
                     
@@ -630,6 +653,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                         onChange={(e) => handleInventoryChange(item.locationId, 'minStock', e.target.value)}
                         min="0"
                         className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                        data-testid={`inventory-minstock-input-${item.locationId}`}
                       />
                     </div>
                     
@@ -640,6 +664,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
                         value={item.expirationDate}
                         onChange={(e) => handleInventoryChange(item.locationId, 'expirationDate', e.target.value)}
                         className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none transition-colors"
+                        data-testid={`inventory-expiration-date-input-${item.locationId}`}
                       />
                     </div>
                   </div>
@@ -659,6 +684,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
             rows="2"
             className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none resize-none transition-colors"
             placeholder="Notas adicionales sobre el producto"
+            data-testid="product-notes-textarea"
           ></textarea>
         </div>
 
@@ -676,6 +702,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
             type="button"
             onClick={onClose}
             className="bg-[#3a3a4a] text-[#F0F0F0] hover:bg-[#4a4a5a] py-2 px-4 rounded-lg transition-colors"
+            data-testid="cancel-product-form-button"
           >
             Cancelar
           </button>
@@ -683,6 +710,7 @@ const ProductForm = ({ product, onClose, onSuccess, mode = 'modal' }) => {
             type="submit"
             disabled={isSubmitting}
             className="bg-[#8A2BE2] text-white hover:bg-[#7a1bd2] py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            data-testid="submit-product-form-button"
           >
             {isSubmitting ? (
               <>

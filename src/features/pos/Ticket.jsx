@@ -10,7 +10,7 @@ const Ticket = ({ saleDetails }) => {
   const { headerText, footerText, showQrCode, fontSize, logoUrl } = ticketSettings;
 
   return (
-    <div className={`bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto my-4 font-mono text-${fontSize}`}>
+    <div className={`bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto my-4 font-mono text-${fontSize} text-gray-900`}>
       <div className="text-center mb-4">
         <img src={logoUrl || logo} alt="Store Logo" className="mx-auto h-16 mb-2" />
         <h2 className="text-lg font-bold">{headerText}</h2>

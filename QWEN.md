@@ -20,6 +20,8 @@ RECOOM POS is a specialized Point of Sale (POS) application designed for grocery
 - **Role-based Access**: Different permissions for Cashier, Manager, and Administrator
 - **Reporting**: Sales reports, profit analysis, and inventory movements
 - **Responsive Design**: Works on mobile, tablet, and desktop devices
+- **Employee Consumption Tracking**: For tracking items consumed by employees
+- **Shopping List Management**: Feature for creating purchase requests and generating expenses
 
 ## 🔧 Building and Running
 
@@ -40,6 +42,10 @@ RECOOM POS is a specialized Point of Sale (POS) application designed for grocery
 - Preview production build: `npm run preview`
 - Build PWA: `npm run build-pwa`
 - Lint code: `npm run lint`
+- Run tests: `npm run test` or `npm run test:run`
+- Run e2e tests: `npm run test:e2e`
+- Setup database: `npm run setup-db`
+- Validate database: `npm run validate-db`
 
 ### Environment Configuration
 Create a `.env.local` file with your Supabase credentials:
@@ -71,7 +77,8 @@ src/
 │   ├── pos/           # Point of sale functionality
 │   ├── inventory/      # Inventory management
 │   ├── transfers/     # Inter-store transfers
-│   └── reports/      # Reports and analytics
+│   ├── reports/       # Reports and analytics
+│   └── notifications/ # Notification provider and utilities
 ├── pages/             # Main application pages
 ├── store/             # Global state management (Zustand)
 ├── utils/             # Utility and helper functions
@@ -115,6 +122,7 @@ src/
 - Modern JavaScript/ES6+ syntax
 - React hooks for state and side effects
 - Zustand for global state management
+- Vitest and React Testing Library for testing
 
 ### PWA Implementation
 - Service worker for offline functionality
@@ -135,3 +143,39 @@ The application is configured to work with Supabase as the primary backend, with
 - Route protection based on user permissions
 - Input validation on the client and server side
 - Secure credential management through environment variables
+
+## 🧪 Testing
+The project includes a testing system based on Vitest and React Testing Library:
+- Unit tests for UI components
+- Integration tests
+- Component rendering tests
+- State management tests with Zustand
+
+Execute tests:
+```bash
+npm run test:run  # Run tests once
+npm run test      # Run tests in watch mode
+npm run test:e2e  # Run end-to-end tests
+```
+
+## 📦 Shopping List and Expenses Feature
+The application includes a shopping list feature that allows users to:
+- Add items to a shopping list with descriptions and expected costs
+- Mark items as purchased with actual costs
+- Generate expenses from purchased items
+- Track both product and non-product purchases
+
+## 🔔 Notification System
+The application includes a notification system that:
+- Provides in-app notifications
+- Can send desktop notifications when available
+- Handles expense approval notifications
+- Supports various notification types (success, error, warning, info)
+
+## 🏪 Multi-Store Management
+The system supports a distributed inventory model:
+- Central warehouse with inventory
+- Multiple store locations
+- Transfer requests between locations
+- Store-specific access based on user role
+- Location-based inventory tracking

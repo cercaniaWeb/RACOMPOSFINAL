@@ -5,25 +5,11 @@
     <link rel="icon" type="image/png" href="/assets/logopos-DKoDJfxv.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#6366f1" />
-    <link rel="manifest" href="/manifest.json" />
     <title>RACOM POS</title>
-    <script type="module" crossorigin src="/assets/index--iION_v5.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-MvWJK9Mn.css">
-  </head>
+    <script type="module" crossorigin src="/assets/index-KJpoGGX-.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DdR5eRAk.css">
+  <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
   <body>
     <div id="root"></div>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
-            .then((registration) => {
-              console.log('SW registered: ', registration);
-            })
-            .catch((registrationError) => {
-              console.log('SW registration failed: ', registrationError);
-            });
-        });
-      }
-    </script>
   </body>
 </html>

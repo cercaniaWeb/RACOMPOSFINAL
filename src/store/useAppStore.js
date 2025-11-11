@@ -14,6 +14,7 @@ import {
   updateUser as updateUserAPI,
   deleteUser as deleteUserAPI,
   getStores,
+  getStore, // ADDED: Import getStore function
   getInventoryBatches,
   addInventoryBatch as addInventoryBatchAPI,
   updateInventoryBatch as updateInventoryBatchAPI,
@@ -25,6 +26,9 @@ import {
   getTransfers,
   getShoppingList,
   getExpenses,
+  addExpense as addExpenseAPI,
+  updateExpense as updateExpenseAPI,
+  approveExpense as approveExpenseAPI,
   getCashClosings,
   addCashClosing,
   getSalesReport,
@@ -32,6 +36,7 @@ import {
 } from '../utils/supabaseAPI';
 import offlineStorage from '../utils/offlineStorage';
 import { supabase } from '../config/supabase';
+import { notificationService } from '../utils/NotificationService';
 
 
 const useAppStore = create((set, get) => ({
@@ -59,7 +64,7 @@ const useAppStore = create((set, get) => ({
   transfers: [],
   salesHistory: [],
   expenses: [],
-  shoppingList: [], // New state for shopping list
+  shoppingList: [], // Will now store objects with detailed structure
   cashClosings: [],
   
   // Reportes
@@ -72,8 +77,66 @@ const useAppStore = create((set, get) => ({
   
   setDiscount: (newDiscount) => set({ discount: newDiscount }), // New action to set discount
   setNote: (newNote) => set({ note: newNote }), // New action to set note
-  addToShoppingList: (item) => set(state => ({ shoppingList: [...state.shoppingList, item] })), // New action to add to shopping list
-  clearShoppingList: () => set({ shoppingList: [] }), // New action to clear shopping list
+  clearLastSale: () => set({ lastSale: null }),
+  
+  // Shopping List Actions
+  addToShoppingList: (description, expectedCost = 0) => set(state => {
+    const newItem = {
+      id: `sl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Unique ID
+      description,
+      expectedCost,
+      actualCost: 0,
+      isPurchased: false,
+      isProduct: false, // Default to false, can be changed later
+    };
+    return { shoppingList: [...state.shoppingList, newItem] };
+  }),
+  updateShoppingListItem: (id, updatedFields) => set(state => {
+    console.log("useAppStore: Updating shopping list item:", id, updatedFields);
+    const updatedList = state.shoppingList.map(item =>
+      item.id === id ? { ...item, ...updatedFields } : item
+    );
+    console.log("useAppStore: Shopping list after update:", updatedList);
+    return { shoppingList: updatedList };
+  }),
+  removeShoppingListItem: (id) => set(state => {
+    console.log("useAppStore: Removing shopping list item:", id);
+    const updatedList = state.shoppingList.filter(item => item.id !== id);
+    console.log("useAppStore: Shopping list after removal:", updatedList);
+    return { shoppingList: updatedList };
+  }),
+  generateExpenseFromShoppingList: async () => {
+    const { shoppingList, addExpense } = get();
+    const purchasedItems = shoppingList.filter(item => item.isPurchased);
+    console.log("useAppStore: Items marked as purchased:", purchasedItems);
+
+    if (purchasedItems.length === 0) {
+      console.warn("No items marked as purchased in the shopping list.");
+      return { success: false, message: "No hay elementos marcados como comprados." };
+    }
+
+    const totalAmount = purchasedItems.reduce((sum, item) => sum + (parseFloat(item.actualCost) || 0), 0);
+    const description = `Compras misceláneas (${purchasedItems.map(item => item.description).join(', ')})`;
+    console.log("useAppStore: Total amount for expense:", totalAmount);
+    console.log("useAppStore: Expense description:", description);
+
+    try {
+      await addExpense({ description, amount: totalAmount, type: 'Gasto Operativo' });
+      // Remove purchased items from the shopping list
+      set(state => {
+        const updatedList = state.shoppingList.filter(item => !item.isPurchased);
+        console.log("useAppStore: Shopping list after expense generation (purchased items removed):", updatedList);
+        return { shoppingList: updatedList };
+      });
+      return { success: true, message: "Gasto generado exitosamente." };
+    } catch (error) {
+      console.error("Error generating expense from shopping list:", error);
+      return { success: false, message: `Error al generar el gasto: ${error.message}` };
+    }
+  },
+
+  // End Shopping List Actions
+
   toggleDarkMode: () => {
     // Dark mode toggle is disabled - always stay in dark mode
     console.log("Dark mode toggle is disabled");
@@ -85,15 +148,17 @@ const useAppStore = create((set, get) => ({
     if (isOnline) {
       // Try to sync pending operations when coming back online
       get().syncPendingOperations();
-      // Reload data from server
-      if (get().currentUser) {
-        get().loadAllData();
-      }
+      // Data will now be re-fetched by components as needed, not all at once.
     }
   },
   
-  // Initialize network status listeners
+  // Initialize network and notification status
   initNetworkListeners: () => {
+    // Request notification permission if not already granted
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     window.addEventListener('online', () => {
       get().updateNetworkStatus(true);
     });
@@ -138,29 +203,16 @@ const useAppStore = create((set, get) => ({
     console.log('Finished syncing pending operations');
   },
 
-  // --- LÓGICA DE CARGA DE DATOS DESDE FIREBASE ---
-  loadAllData: async () => {
-    await Promise.all([
-      get().loadProducts(),
-      get().loadCategories(), 
-      get().loadUsers(),
-      get().loadStores(),
-      get().loadInventoryBatches(),
-      get().loadSalesHistory(),
-      get().loadClients(),
-      get().loadTransfers(),
-      get().loadShoppingList(),
-      get().loadExpenses(),
-      get().loadCashClosings(),
-    ]);
-  },
+  // --- LÓGICA DE CARGA DE DATOS ---
+  // These functions are now intended to be called on-demand by components,
+  // not all at once at startup.
   
   loadProducts: async () => {
     set({ isLoading: { ...get().isLoading, products: true } });
     try {
       // Try to load from network first if online
       if (get().isOnline) {
-        const products = await getProducts();
+        const { data: products } = await getProducts(); // Using paginated API
         
         // Asegurar consistencia en los nombres de campos
         const mappedProducts = products.map(product => {
@@ -212,33 +264,6 @@ const useAppStore = create((set, get) => ({
         set({ products: mappedOfflineProducts });
       } catch (offlineError) {
         console.error("Error loading products from offline storage:", offlineError);
-        // Si no hay productos en la base de datos y tampoco en offline, crear productos de ejemplo
-        console.log("Creando productos de ejemplo para debug");
-        const exampleProducts = [
-          { id: 'debug-1', name: 'Coca Cola 600ml', price: 12.50, categoryId: 'bebidas', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: 'debug-2', name: 'Sabritas Original 42g', price: 10.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: 'debug-3', name: 'Leche Lala 1L', price: 24.90, categoryId: 'lacteos', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: 'debug-4', name: 'Huevo Grande 12pz', price: 32.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: 'debug-5', name: 'Pan Blanco Bimbo', price: 18.50, categoryId: 'panaderia', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          // Productos adicionales que estaban en el catálogo de pruebas
-          { id: '6', name: 'bonafont', price: 15.00, categoryId: 'bebidas', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '7', name: 'Cahuamon Victoria', price: 55.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '8', name: 'CI Malboro', price: 50.00, categoryId: 'vicio', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '9', name: 'Crema Alpura', price: 25.00, categoryId: 'lacteos', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '10', name: 'Crossantines', price: 7.00, categoryId: 'panaderia', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '11', name: 'Desodorante eGo', price: 50.00, categoryId: 'limpieza', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '12', name: 'Doritos Nacho', price: 18.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '13', name: 'mayonesa', price: 25.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '14', name: 'pruebasprod', price: 10.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '15', name: 'pruebasTicket', price: 1.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-          { id: '16', name: 'testPrdoduc', price: 15.00, categoryId: 'abarrotes', unit: 'unidad', minStockThreshold: { '1': 5, '2': 5, 'bodega-central': 10 } },
-        ];
-        set({ products: exampleProducts });
-        
-        // También guardar en offline storage para persistencia
-        await Promise.all(exampleProducts.map(product => 
-          offlineStorage.updateData('products', product.id, product)
-        ));
       }
     } finally {
       set({ isLoading: { ...get().isLoading, products: false } });
@@ -266,20 +291,6 @@ const useAppStore = create((set, get) => ({
         set({ categories: offlineCategories });
       } catch (offlineError) {
         console.error("Error loading categories from offline storage:", offlineError);
-        // Si no hay categorías en la base de datos y tampoco en offline, crear categorías de ejemplo
-        console.log("Creando categorías de ejemplo para debug");
-        const exampleCategories = [
-          { id: 'abarrotes', name: 'Abarrotes', description: 'Productos de abarrotes' },
-          { id: 'bebidas', name: 'Bebidas', description: 'Bebidas en general' },
-          { id: 'lacteos', name: 'Lácteos', description: 'Leche, quesos y derivados' },
-          { id: 'panaderia', name: 'Panadería', description: 'Pan y productos de panadería' },
-          { id: 'carnes', name: 'Carnes', description: 'Carnes y embutidos' },
-          { id: 'frutas', name: 'Frutas', description: 'Frutas frescas' },
-          { id: 'verduras', name: 'Verduras', description: 'Verduras frescas' },
-          { id: 'limpieza', name: 'Limpieza', description: 'Productos de limpieza' },
-          { id: 'vicio', name: 'Vicio', description: 'Cigarrillos y productos varios' },
-        ];
-        set({ categories: exampleCategories });
       }
     } finally {
       set({ isLoading: { ...get().isLoading, categories: false } });
@@ -290,7 +301,7 @@ const useAppStore = create((set, get) => ({
     set({ isLoading: { ...get().isLoading, users: true } });
     try {
       if (get().isOnline) {
-        const users = await getUsers();
+        const { data: users } = await getUsers();
         
         // Mapear campos para consistencia
         const mappedUsers = users.map(user => {
@@ -369,7 +380,7 @@ const useAppStore = create((set, get) => ({
     set({ isLoading: { ...get().isLoading, inventory: true } });
     try {
       if (get().isOnline) {
-        const inventoryBatches = await getInventoryBatches();
+        const { data: inventoryBatches } = await getInventoryBatches();
         
         // Asegurar consistencia en los nombres de campos
         const mappedInventoryBatches = inventoryBatches.map(batch => {
@@ -421,71 +432,6 @@ const useAppStore = create((set, get) => ({
         set({ inventoryBatches: mappedOfflineBatches });
       } catch (offlineError) {
         console.error("Error loading inventory batches from offline storage:", offlineError);
-        // Si no hay inventario en la base de datos y tampoco en offline, crear inventario de ejemplo
-        console.log("Creando inventario de ejemplo para debug");
-        const exampleInventoryBatches = [
-          // Inventario para los productos originales de ejemplo
-          { inventoryId: 'inv-1', productId: 'debug-1', locationId: '1', quantity: 20, cost: 10.00 },
-          { inventoryId: 'inv-2', productId: 'debug-2', locationId: '1', quantity: 15, cost: 8.00 },
-          { inventoryId: 'inv-3', productId: 'debug-3', locationId: '1', quantity: 10, cost: 20.00 },
-          { inventoryId: 'inv-4', productId: 'debug-4', locationId: '1', quantity: 12, cost: 25.00 },
-          { inventoryId: 'inv-5', productId: 'debug-5', locationId: '1', quantity: 8, cost: 15.00 },
-          
-          // Inventario para los productos adicionales que están en el catálogo
-          { inventoryId: 'inv-6', productId: '6', locationId: '1', quantity: 30, cost: 12.00 },
-          { inventoryId: 'inv-7', productId: '7', locationId: '1', quantity: 15, cost: 45.00 },
-          { inventoryId: 'inv-8', productId: '8', locationId: '1', quantity: 20, cost: 40.00 },
-          { inventoryId: 'inv-9', productId: '9', locationId: '1', quantity: 25, cost: 20.00 },
-          { inventoryId: 'inv-10', productId: '10', locationId: '1', quantity: 40, cost: 5.00 },
-          { inventoryId: 'inv-11', productId: '11', locationId: '1', quantity: 18, cost: 40.00 },
-          { inventoryId: 'inv-12', productId: '12', locationId: '1', quantity: 35, cost: 15.00 },
-          { inventoryId: 'inv-13', productId: '13', locationId: '1', quantity: 22, cost: 20.00 },
-          { inventoryId: 'inv-14', productId: '14', locationId: '1', quantity: 30, cost: 8.00 },
-          { inventoryId: 'inv-15', productId: '15', locationId: '1', quantity: 50, cost: 0.80 },
-          { inventoryId: 'inv-16', productId: '16', locationId: '1', quantity: 28, cost: 12.00 },
-          
-          // Inventario para las demás tiendas
-          { inventoryId: 'inv-17', productId: 'debug-1', locationId: '2', quantity: 18, cost: 10.00 },
-          { inventoryId: 'inv-18', productId: 'debug-2', locationId: '2', quantity: 12, cost: 8.00 },
-          { inventoryId: 'inv-19', productId: 'debug-3', locationId: '2', quantity: 9, cost: 20.00 },
-          { inventoryId: 'inv-20', productId: 'debug-4', locationId: '2', quantity: 11, cost: 25.00 },
-          { inventoryId: 'inv-21', productId: 'debug-5', locationId: '2', quantity: 7, cost: 15.00 },
-          { inventoryId: 'inv-22', productId: '6', locationId: '2', quantity: 25, cost: 12.00 },
-          { inventoryId: 'inv-23', productId: '7', locationId: '2', quantity: 10, cost: 45.00 },
-          { inventoryId: 'inv-24', productId: '8', locationId: '2', quantity: 15, cost: 40.00 },
-          { inventoryId: 'inv-25', productId: '9', locationId: '2', quantity: 20, cost: 20.00 },
-          { inventoryId: 'inv-26', productId: '10', locationId: '2', quantity: 30, cost: 5.00 },
-          { inventoryId: 'inv-27', productId: '11', locationId: '2', quantity: 12, cost: 40.00 },
-          { inventoryId: 'inv-28', productId: '12', locationId: '2', quantity: 25, cost: 15.00 },
-          { inventoryId: 'inv-29', productId: '13', locationId: '2', quantity: 18, cost: 20.00 },
-          { inventoryId: 'inv-30', productId: '14', locationId: '2', quantity: 20, cost: 8.00 },
-          { inventoryId: 'inv-31', productId: '15', locationId: '2', quantity: 40, cost: 0.80 },
-          { inventoryId: 'inv-32', productId: '16', locationId: '2', quantity: 22, cost: 12.00 },
-          
-          // Inventario para bodega central
-          { inventoryId: 'inv-33', productId: 'debug-1', locationId: 'bodega-central', quantity: 50, cost: 10.00 },
-          { inventoryId: 'inv-34', productId: 'debug-2', locationId: 'bodega-central', quantity: 40, cost: 8.00 },
-          { inventoryId: 'inv-35', productId: 'debug-3', locationId: 'bodega-central', quantity: 35, cost: 20.00 },
-          { inventoryId: 'inv-36', productId: 'debug-4', locationId: 'bodega-central', quantity: 30, cost: 25.00 },
-          { inventoryId: 'inv-37', productId: 'debug-5', locationId: 'bodega-central', quantity: 25, cost: 15.00 },
-          { inventoryId: 'inv-38', productId: '6', locationId: 'bodega-central', quantity: 100, cost: 12.00 },
-          { inventoryId: 'inv-39', productId: '7', locationId: 'bodega-central', quantity: 60, cost: 45.00 },
-          { inventoryId: 'inv-40', productId: '8', locationId: 'bodega-central', quantity: 80, cost: 40.00 },
-          { inventoryId: 'inv-41', productId: '9', locationId: 'bodega-central', quantity: 70, cost: 20.00 },
-          { inventoryId: 'inv-42', productId: '10', locationId: 'bodega-central', quantity: 90, cost: 5.00 },
-          { inventoryId: 'inv-43', productId: '11', locationId: 'bodega-central', quantity: 55, cost: 40.00 },
-          { inventoryId: 'inv-44', productId: '12', locationId: 'bodega-central', quantity: 85, cost: 15.00 },
-          { inventoryId: 'inv-45', productId: '13', locationId: 'bodega-central', quantity: 65, cost: 20.00 },
-          { inventoryId: 'inv-46', productId: '14', locationId: 'bodega-central', quantity: 75, cost: 8.00 },
-          { inventoryId: 'inv-47', productId: '15', locationId: 'bodega-central', quantity: 120, cost: 0.80 },
-          { inventoryId: 'inv-48', productId: '16', locationId: 'bodega-central', quantity: 70, cost: 12.00 },
-        ];
-        set({ inventoryBatches: exampleInventoryBatches });
-        
-        // También guardar en offline storage para persistencia
-        await Promise.all(exampleInventoryBatches.map(batch => 
-          offlineStorage.updateData('inventoryBatches', batch.inventoryId, batch)
-        ));
       }
     } finally {
       set({ isLoading: { ...get().isLoading, inventory: false } });
@@ -496,7 +442,7 @@ const useAppStore = create((set, get) => ({
     set({ isLoading: { ...get().isLoading, sales: true } });
     try {
       if (get().isOnline) {
-        const salesHistory = await getSales();
+        const { data: salesHistory } = await getSales();
         set({ salesHistory });
         // Store in offline storage (limit to last 100 sales for storage efficiency)
         const limitedSales = salesHistory.slice(0, 100);
@@ -524,7 +470,7 @@ const useAppStore = create((set, get) => ({
     set({ isLoading: { ...get().isLoading, clients: true } });
     try {
       if (get().isOnline) {
-        const clients = await getClients();
+        const { data: clients } = await getClients();
         set({ clients });
         // Store in offline storage
         await Promise.all(clients.map(client => 
@@ -549,7 +495,7 @@ const useAppStore = create((set, get) => ({
 
   loadTransfers: async () => {
     try {
-      const transfers = await getTransfers();
+      const { data: transfers } = await getTransfers();
       set({ transfers });
     } catch (error) {
       console.error("Error loading transfers:", error);
@@ -558,7 +504,7 @@ const useAppStore = create((set, get) => ({
 
   loadShoppingList: async () => {
     try {
-      const shoppingList = await getShoppingList();
+      const { data: shoppingList } = await getShoppingList();
       set({ shoppingList });
     } catch (error) {
       console.error("Error loading shopping list:", error);
@@ -567,7 +513,7 @@ const useAppStore = create((set, get) => ({
 
   loadExpenses: async () => {
     try {
-      const expenses = await getExpenses();
+      const { data: expenses } = await getExpenses();
       set({ expenses });
     } catch (error) {
       console.error("Error loading expenses:", error);
@@ -576,7 +522,7 @@ const useAppStore = create((set, get) => ({
 
   loadCashClosings: async () => {
     try {
-      const cashClosings = await getCashClosings();
+      const { data: cashClosings } = await getCashClosings();
       set({ cashClosings });
     } catch (error) {
       console.error("Error loading cash closings:", error);
@@ -596,6 +542,76 @@ const useAppStore = create((set, get) => ({
     } catch (error) {
       console.error("Error adding cash closing:", error);
       throw error;
+    }
+  },
+
+  addExpense: async (expenseData) => {
+    try {
+      // Agregar el gasto a través de la API
+      const expenseId = await addExpenseAPI(expenseData);
+
+      // Recargar gastos para reflejar el cambio
+      await get().loadExpenses();
+
+      return { success: true, id: expenseId };
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  notifyAdminsOfPendingExpense: (expenseData) => {
+    // Verificar si hay soporte para notificaciones push
+    if ('Notification' in window && Notification.permission === 'granted') {
+      // Intentar mostrar notificación push
+      try {
+        new Notification('Nuevo gasto pendiente de aprobación', {
+          body: `Concepto: ${expenseData.concept}\nMonto: $${expenseData.amount}\nUsuario: ${get().currentUser?.name || get().currentUser?.email || 'Desconocido'}`,
+          icon: '/favicon.ico', // Puedes especificar un icono
+          tag: 'pending-expense-' + Date.now()
+        });
+      } catch (error) {
+        console.error('Error al mostrar notificación de escritorio:', error);
+      }
+    } else {
+      // Mostrar alerta simple si no hay permisos para notificaciones push
+      alert(`Nuevo gasto pendiente de aprobación: ${expenseData.concept} - Monto: $${expenseData.amount}`);
+    }
+
+    // Registrar también en la consola para propósitos de seguimiento
+    console.log('Notificación de gasto pendiente:', expenseData);
+  },
+
+  approveExpense: async (expenseId) => {
+    try {
+      // Aprobar el gasto a través de la API
+      await approveExpenseAPI(expenseId);
+
+      // Recargar gastos para reflejar el cambio
+      await get().loadExpenses();
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error approving expense:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  updateExpense: async (expenseId, expenseData) => {
+    try {
+      // Actualizar el gasto a través de la API
+      const updatedExpenseId = await updateExpenseAPI(expenseId, {
+        ...expenseData,
+        updated_at: new Date().toISOString()
+      });
+
+      // Recargar gastos para reflejar el cambio
+      await get().loadExpenses();
+
+      return { success: true, id: updatedExpenseId };
+    } catch (error) {
+      console.error("Error updating expense:", error);
+      return { success: false, error: error.message };
     }
   },
 
@@ -659,6 +675,194 @@ const useAppStore = create((set, get) => ({
       return { success: false, error: error.message };
     }
   },
+  // --- LÓGICA DE USUARIOS ---
+  addUser: async (userData) => {
+    const { password, name, email, ...userProperties } = userData;
+    
+    // Validaciones
+    if (!name || name.trim() === '') {
+      return { success: false, error: "El nombre es requerido" };
+    }
+    
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      return { success: false, error: "Email inválido" };
+    }
+    
+    if (!password || password.length < 6) {
+      return { success: false, error: "La contraseña debe tener al menos 6 caracteres" };
+    }
+    
+    try {
+      // Agregar el usuario a través de la API (esto creará tanto en Auth como en tabla personalizada)
+      const userId = await addUserAPI(userData);
+
+      // Recargar usuarios para reflejar el cambio
+      await get().loadUsers();
+
+      // Mostrar notificación de éxito
+      notificationService.success(`Usuario ${name} creado exitosamente. El usuario recibirá un correo de confirmación.`);
+
+      return { success: true, userId };
+    } catch (error) {
+      console.error("Error adding user:", error);
+      alert(`Error al crear el usuario: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  },
+  updateUser: async (id, updatedData) => {
+    const { password, name, email, ...userProperties } = updatedData;
+    
+    // Validaciones
+    if (name && name.trim() === '') {
+      return { success: false, error: "El nombre no puede estar vacío" };
+    }
+    
+    if (email && !/\S+@\S+\.\S+/.test(email)) {
+      return { success: false, error: "Email inválido" };
+    }
+    
+    if (password && password.length < 6) {
+      return { success: false, error: "La contraseña debe tener al menos 6 caracteres" };
+    }
+    
+    try {
+      // Actualizar los datos del usuario (sin la contraseña)
+      await updateUserAPI(id, updatedData);
+
+      // El manejo de la contraseña ya se realiza en updateUserAPI
+      // Recargar usuarios para reflejar el cambio
+      await get().loadUsers();
+
+      // Mostrar notificación de éxito
+      const { users } = get();
+      const updatedUser = users.find(u => u.id === id);
+      
+      if (password) {
+        const { currentUser } = get();
+        if (currentUser?.id === id) {
+          notificationService.success('Perfil actualizado exitosamente. Contraseña cambiada.');
+        } else {
+          notificationService.success(`Perfil de ${updatedUser?.name || 'usuario'} actualizado. Se ha enviado un correo de restablecimiento de contraseña.`);
+        }
+      } else {
+        notificationService.success(`Perfil de ${updatedUser?.name || 'usuario'} actualizado exitosamente.`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating user:", error);
+      alert(`Error al actualizar el usuario: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  },
+  deleteUser: async (id) => {
+    try {
+      // Eliminar el usuario a través de la API
+      await deleteUserAPI(id);
+
+      // Recargar usuarios para reflejar el cambio
+      await get().loadUsers();
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      return { success: false, error: error.message };
+    }
+  },
+  // --- LÓGICA DE PRODUCTOS ---
+  addProduct: async (productData) => {
+    try {
+      // Agregar el producto a través de la API
+      const productId = await addProductAPI({
+        ...productData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+      // Recargar productos para reflejar el cambio
+      await get().loadProducts();
+
+      return { success: true, id: productId };
+    } catch (error) {
+      console.error("Error adding product:", error);
+      return { success: false, error: error.message };
+    }
+  },
+  updateProduct: async (id, updatedData) => {
+    try {
+      // Actualizar el producto a través de la API
+      await updateProductAPI(id, updatedData);
+
+      // Recargar productos para reflejar el cambio
+      await get().loadProducts();
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating product:", error);
+      return { success: false, error: error.message };
+    }
+  },
+  deleteProduct: async (id) => {
+    try {
+      // Eliminar el producto a través de la API
+      await deleteProductAPI(id);
+
+      // Recargar productos para reflejar el cambio
+      await get().loadProducts();
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      return { success: false, error: error.message };
+    }
+  },
+  // --- LÓGICA DE LOTES DE INVENTARIO ---
+  addInventoryBatch: async (inventoryBatchData) => {
+    try {
+      // Agregar el lote de inventario a través de la API
+      const result = await addInventoryBatchAPI({
+        ...inventoryBatchData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+      // Recargar lotes de inventario para reflejar el cambio
+      await get().loadInventoryBatches();
+
+      return { success: true, id: result };
+    } catch (error) {
+      console.error("Error adding inventory batch:", error);
+      return { success: false, error: error.message };
+    }
+  },
+  updateInventoryBatch: async (id, updatedData) => {
+    try {
+      // Actualizar el lote de inventario a través de la API
+      await updateInventoryBatchAPI(id, updatedData);
+
+      // Recargar lotes de inventario para reflejar el cambio
+      await get().loadInventoryBatches();
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating inventory batch:", error);
+      return { success: false, error: error.message };
+    }
+  },
+  deleteInventoryBatch: async (id) => {
+    try {
+      // Eliminar el lote de inventario a través de la API
+      await deleteInventoryBatchAPI(id);
+
+      // Recargar lotes de inventario para reflejar el cambio
+      await get().loadInventoryBatches();
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting inventory batch:", error);
+      return { success: false, error: error.message };
+    }
+  },
   grantCredit: async (clientId, amount) => {
     try {
       // Implementation will depend on your Firestore update function
@@ -695,40 +899,76 @@ const useAppStore = create((set, get) => ({
       return { success: false, error: error.message };
     }
   },
-  addReminder: (reminderData) => {
-    const newReminder = { ...reminderData, id: `rem-${Date.now()}`, isConcluded: false, createdAt: new Date().toISOString() };
-    set(state => ({ reminders: [...state.reminders, newReminder] }));
-  },
-
-  markReminderAsConcluded: (id) => {
-    set(state => ({
-      reminders: state.reminders.map(rem => rem.id === id ? { ...rem, isConcluded: true } : rem)
-    }));
-  },
   // --- LÓGICA DE TRANSFERENCIAS ---
-  createTransferRequest: ({ items }) => {
-    const { currentUser, stores } = get();
-    const destinationStore = stores.find(s => s.id === currentUser.storeId);
-
-    if (!destinationStore) {
-      console.error("Cannot create transfer request: User has no assigned store.");
-      return;
-    }
-
+  loadTransfers: async () => {
+    const offlineTransfers = await offlineStorage.getAllData('transfers');
+    set({ transfers: offlineTransfers });
+  },
+  createTransfer: async (transferData) => {
+    const { currentUser } = get();
     const newTransfer = {
+      ...transferData,
       id: `TR-${Date.now()}`,
-      originLocationId: 'bodega-central',
-      destinationLocationId: destinationStore.id,
       requestedBy: currentUser.uid,
       createdAt: new Date().toISOString(),
       status: 'solicitado',
-      items: items, // [{ productId, productName, requestedQuantity }]
       history: [{ status: 'solicitado', date: new Date().toISOString(), userId: currentUser.uid }],
     };
-
+    await offlineStorage.updateData('transfers', newTransfer.id, newTransfer);
     set(state => ({
       transfers: [...state.transfers, newTransfer]
     }));
+  },
+  confirmTransferShipment: async (transferId, sentItems) => {
+    const { currentUser, transfers } = get();
+    const transfer = transfers.find(t => t.id === transferId);
+    if (!transfer) return;
+
+    const updatedTransfer = {
+      ...transfer,
+      status: 'enviado',
+      items: transfer.items.map(item => {
+        const sentItem = sentItems.find(si => si.productId === item.productId);
+        return {
+          ...item,
+          sentQuantity: sentItem ? sentItem.quantity : 0,
+        };
+      }),
+      history: [...transfer.history, { status: 'enviado', date: new Date().toISOString(), userId: currentUser.uid }],
+    };
+
+    await offlineStorage.updateData('transfers', transferId, updatedTransfer);
+    set(state => ({
+      transfers: state.transfers.map(t => t.id === transferId ? updatedTransfer : t)
+    }));
+  },
+  confirmTransferReception: async (transferId, receivedItems) => {
+    const { currentUser, transfers } = get();
+    const transfer = transfers.find(t => t.id === transferId);
+    if (!transfer) return;
+
+    const updatedTransfer = {
+      ...transfer,
+      status: 'recibido',
+      items: transfer.items.map(item => {
+        const receivedItem = receivedItems.find(ri => ri.productId === item.productId);
+        return {
+          ...item,
+          receivedQuantity: receivedItem ? receivedItem.quantity : 0,
+        };
+      }),
+      history: [...transfer.history, { status: 'recibido', date: new Date().toISOString(), userId: currentUser.uid }],
+    };
+
+    await offlineStorage.updateData('transfers', transferId, updatedTransfer);
+    set(state => ({
+      transfers: state.transfers.map(t => t.id === transferId ? updatedTransfer : t)
+    }));
+  },
+
+  addReminder: (reminderData) => {
+    const newReminder = { ...reminderData, id: `rem-${Date.now()}`, isConcluded: false, createdAt: new Date().toISOString() };
+    set(state => ({ reminders: [...state.reminders, newReminder] }));
   },
 
   alerts: [],
@@ -794,49 +1034,6 @@ const useAppStore = create((set, get) => ({
   },
     // --- ACTIONS ---
   
-    // Inicialización
-    initialize: async () => {
-      console.log("useAppStore initialize function called.");
-      const storedTicketSettings = localStorage.getItem('ticketSettings');
-      let initialTicketSettings = get().ticketSettings; // Get default settings
-      const darkModePreference = true; // Fixed dark mode (disabled toggle functionality)
-  
-      if (storedTicketSettings) {
-        const parsedSettings = JSON.parse(storedTicketSettings);
-        console.log("Loading ticketSettings from localStorage:", parsedSettings);
-        initialTicketSettings = { ...initialTicketSettings, ...parsedSettings }; // Merge with stored
-      }
-  
-      // Initialize network listeners for offline support
-      get().initNetworkListeners();
-  
-      // Initialize Supabase collections if needed
-      await initializeSupabaseCollections();
-  
-      // Load data from Firebase
-      await Promise.all([
-        get().loadProducts(),
-        get().loadCategories(), 
-        get().loadUsers(),
-        get().loadStores(),
-        get().loadInventoryBatches(),
-        get().loadSalesHistory(),
-        get().loadClients(),
-        get().loadTransfers(),
-        get().loadShoppingList(),
-        get().loadExpenses(),
-        get().loadCashClosings(),
-      ]);
-  
-      set({
-        ticketSettings: initialTicketSettings, // Set merged settings
-        darkMode: darkModePreference, // Set dark mode preference
-        isOnline: navigator.onLine, // Set initial network status
-        offlineMode: !navigator.onLine, // Set initial offline mode
-      });
-      get().checkAllAlerts();
-    },
-  
     // Autenticación
     handleLogin: async (email, password) => {
       try {
@@ -862,16 +1059,25 @@ const useAppStore = create((set, get) => ({
         // Fetch user details from Supabase
         const userDoc = await getUser(data.user.id);
         if (userDoc) {
+          let assignedStoreName = 'Tienda no asignada';
+          if (userDoc.storeId) {
+            const assignedStore = await getStore(userDoc.storeId);
+            if (assignedStore) {
+              assignedStoreName = assignedStore.name;
+            } else {
+              console.warn(`Store with ID ${userDoc.storeId} not found for user ${userDoc.name}.`);
+            }
+          }
+
           set({
             currentUser: {
               ...userDoc,
-              storeId: userDoc.storeId || userDoc.store_id, // Ensure storeId is properly mapped
-              storeName: userDoc.storeName || userDoc.store_name || 'Tienda no asignada' // Ensure storeName is available
+              storeId: userDoc.storeId || userDoc.store_id,
+              storeName: assignedStoreName,
             },
             currentView: userDoc.role === 'admin' || userDoc.role === 'gerente' ? 'admin-dashboard' : 'pos',
           });
-          // Initialize the app data after login
-          await get().initialize();
+          // App data will be loaded by components on demand.
           return { success: true, user: userDoc };
         } else {
           return { success: false, error: "Usuario no encontrado en la base de datos" };
@@ -885,18 +1091,10 @@ const useAppStore = create((set, get) => ({
         currentUser: null, 
         currentView: 'login', 
         cart: [],
-        // Reset all data to empty arrays
-        products: [],
-        categories: [],
-        users: [],
-        stores: [],
-        clients: [],
-        inventoryBatches: [],
-        transfers: [],
-        salesHistory: [],
-        expenses: [],
-        shoppingList: [],
-        cashClosings: [],
+        // Reset only non-essential data, catalogs will be cleared by pages themselves.
+        discount: { type: 'none', value: 0 },
+        note: '',
+        lastSale: null,
       });
     },
   
@@ -1077,7 +1275,8 @@ const useAppStore = create((set, get) => ({
           inventoryBatches: updatedBatches.filter(b => b.quantity > 0),
         });
   
-        get().checkAllAlerts();
+        // TODO: Refactor checkAllAlerts to be a backend-driven process
+        // get().checkAllAlerts();
         
         return { success: true, saleId: offlineSaleId, offline: true };
       }
@@ -1086,8 +1285,17 @@ const useAppStore = create((set, get) => ({
         // Save the sale to Firebase
         const saleId = await addSaleAPI(saleDetails);
         
-        // Update inventory batches in Firebase
-        // For simplicity, we'll reload inventory after checkout
+        // Update inventory batches in Supabase
+        const updatePromises = updatedBatches.map(async (batch) => {
+          // Only update batches whose quantity has changed
+          const originalBatch = inventoryBatches.find(b => b.id === batch.id);
+          if (originalBatch && originalBatch.quantity !== batch.quantity) {
+            await updateInventoryBatchAPI(batch.id, { quantity: batch.quantity });
+          }
+        });
+        await Promise.all(updatePromises);
+
+        // Reload inventory after checkout to reflect the changes
         await get().loadInventoryBatches();
   
         // Update the state
@@ -1099,7 +1307,8 @@ const useAppStore = create((set, get) => ({
           note: '', // Reset note after checkout
         });
   
-        get().checkAllAlerts();
+        // TODO: Refactor checkAllAlerts to be a backend-driven process
+        // get().checkAllAlerts();
         
         return { success: true, saleId };
       } catch (error) {
@@ -1107,128 +1316,41 @@ const useAppStore = create((set, get) => ({
         return { success: false, error: error.message };
       }
     },
-  // --- LÓGICA DE TRANSFERENCIAS ---
-  createTransferRequest: ({ items }) => {
-    const { currentUser, stores } = get();
-    const destinationStore = stores.find(s => s.id === currentUser.storeId);
 
-    if (!destinationStore) {
-      console.error("Cannot create transfer request: User has no assigned store.");
+  // --- LÓGICA DE CONSUMO DE EMPLEADOS ---
+  recordEmployeeConsumption: (productId, quantity) => {
+    const { products, addExpense, updateProduct } = get();
+    const product = products.find(p => p.id === productId);
+
+    if (!product) {
+      console.error(`Product with id ${productId} not found.`);
       return;
     }
 
-    const newTransfer = {
-      id: `TR-${Date.now()}`,
-      originLocationId: 'bodega-central',
-      destinationLocationId: destinationStore.id,
-      requestedBy: currentUser.uid,
-      createdAt: new Date().toISOString(),
-      status: 'solicitado',
-      items: items, // [{ productId, productName, requestedQuantity }]
-      history: [{ status: 'solicitado', date: new Date().toISOString(), userId: currentUser.uid }],
-    };
+    const consumptionCost = (product.cost || 0) * quantity;
 
-    set(state => ({
-      transfers: [...state.transfers, newTransfer]
-    }));
-  },
-  // --- LÓGICA DE CONSUMO DE EMPLEADOS ---
-  recordEmployeeConsumption: (consumedItems, consumingUser) => {
-    const { inventoryBatches } = get();
-    let updatedBatches = JSON.parse(JSON.stringify(inventoryBatches));
-
-    // Deduct stock for each consumed item
-    for (const item of consumedItems) {
-      let quantityToDeduct = item.quantity;
-
-      // Find and sort relevant batches (FEFO) for the consuming user's store
-      const relevantBatches = updatedBatches
-        .filter(b => b.productId === item.id && b.locationId === consumingUser.storeId)
-        .sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate));
-
-      for (const batch of relevantBatches) {
-        if (quantityToDeduct <= 0) break;
-
-        const deductAmount = Math.min(quantityToDeduct, batch.quantity);
-        batch.quantity -= deductAmount;
-        quantityToDeduct -= deductAmount;
-      }
-    }
-
-    // Record the consumption (e.g., in a separate consumption history or as a special expense)
-    const consumptionRecord = {
-      id: `CONS-${Date.now()}`,
+    const expenseData = {
       date: new Date().toISOString(),
-      items: consumedItems,
-      user: consumingUser.name,
-      storeId: consumingUser.storeId,
-      type: 'Consumo de Empleado',
+      description: `Consumo de empleado: ${quantity} x ${product.name}`,
+      amount: consumptionCost,
+      category: 'Egreso por Consumo',
+      status: 'Aprobado' // Employee consumption is always approved
     };
-    console.log("Employee Consumption Recorded:", consumptionRecord);
 
-    set({ 
-      inventoryBatches: updatedBatches.filter(b => b.quantity > 0),
-      // Optionally, add to a separate consumption history array
-    });
+    // Add the expense
+    addExpense(expenseData);
 
-    get().checkAllAlerts();
+    // Update product stock
+    const newStock = (product.stock || 0) - quantity;
+    updateProduct(productId, { stock: newStock });
   },
 
+  // TODO: Refactor checkAllAlerts to be a backend-driven process.
+  // This function currently relies on having all products and inventory in memory,
+  // which is not scalable. This should be replaced with a server-side job or query.
   checkAllAlerts: async () => {
-    try {
-      // Get most recent data from state (which should be from Supabase)
-      const { inventoryBatches, products, stores, alertSettings } = get();
-      const newAlerts = [];
-
-      // 1. Alertas de Stock Bajo
-      stores.forEach(store => {
-        products.forEach(product => {
-          const totalStockInLocation = inventoryBatches
-            .filter(batch => String(batch.productId) === String(product.id) && String(batch.locationId) === String(store.id))
-            .reduce((sum, batch) => sum + batch.quantity, 0);
-          
-          const threshold = product.minStockThreshold?.[store.id];
-
-          if (threshold !== undefined && totalStockInLocation < threshold) {
-            newAlerts.push({
-              id: `low-stock-${product.id}-${store.id}`,
-              type: 'Stock Bajo',
-              message: `Quedan ${totalStockInLocation} de ${product.name} en ${store.name}. (Mínimo: ${threshold})`,
-              isRead: false,
-            });
-          }
-        });
-      });
-
-      // 2. Alertas de Próxima Caducidad
-      const today = new Date();
-      const alertDate = new Date();
-      alertDate.setDate(today.getDate() + alertSettings.daysBeforeExpiration);
-
-      inventoryBatches.forEach(batch => {
-        if (batch.expirationDate) {
-          const expiration = new Date(batch.expirationDate);
-          if (expiration > today && expiration <= alertDate) {
-            const product = products.find(p => String(p.id) === String(batch.productId));
-            const store = stores.find(s => String(s.id) === String(batch.locationId));
-            if (product && store) {
-              newAlerts.push({
-                id: `exp-${batch.inventoryId || batch.id}`,
-                type: 'Próxima Caducidad',
-                message: `${batch.quantity} de ${product.name} en ${store.name} vencen el ${batch.expirationDate}.`,
-                isRead: false,
-              });
-            }
-          }
-        }
-      });
-
-      set({ alerts: newAlerts });
-      return { success: true };
-    } catch (error) {
-      console.error("Error checking alerts:", error);
-      return { success: false, error: error.message };
-    }
+    console.warn("checkAllAlerts is temporarily disabled for performance reasons and needs to be refactored.");
+    return;
   },
 
   // --- LÓGICA DE CONFIGURACIÓN DE TICKET ---

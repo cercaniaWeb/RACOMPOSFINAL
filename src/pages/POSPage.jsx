@@ -41,9 +41,10 @@ import PreviousSalesModal from '../features/pos/PreviousSalesModal';
 import ScheduleVisitModal from '../features/pos/ScheduleVisitModal';
 import WithdrawalModal from '../features/pos/WithdrawalModal';
 import ProductCollectionModal from '../features/pos/ProductCollectionModal';
-import QRScanner from '../components/qr/QRScanner';
+import ScannerComponent from '../components/qr/ScannerComponent';
 import WeightModal from '../components/WeightModal';
 import scaleService from '../services/ScaleService';
+import useNotification from '../features/notifications/hooks/useNotification';
 
 
 
@@ -262,92 +263,19 @@ export default function POSPage() {
     };
   }, []);
 
-  const toggleScanning = async () => {
-    // Check if we're turning scanning on and if not, toggle it
-    if (!isScanning) {
-      // Request camera permissions before starting scan
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        stream.getTracks().forEach(track => track.stop()); // Stop the test stream
-        setIsScanning(true);
-      } catch (err) {
-        console.error('Error accessing camera:', err);
-        alert('No se pudo acceder a la cámara. Por favor, verifica los permisos.');
-      }
+  const toggleScanning = () => setIsScanning(prev => !prev);
+
+  const handleScan = (scannedBarcode) => {
+    if (!scannedBarcode || scannedBarcode.trim() === '') return;
+    const product = productsForSale.find(p => p.barcode === scannedBarcode);
+    if (product) {
+      addToCart(product);
+      showSuccess(`${product.name} agregado al carrito.`);
     } else {
-      setIsScanning(false);
+      showError(`Producto con código ${scannedBarcode} no encontrado.`);
     }
+    setIsScanning(false);
   };
-
-  // Estado para mostrar indicador de procesamiento
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Contador de intentos fallidos para evitar spam de errores
-  const failedAttempts = useRef(0);
-  const maxFailedAttempts = 5;
-
-  const { ref } = useZxing({
-    onResult(result) {
-      // Evitar procesamiento múltiple del mismo código
-      if (isProcessing) return;
-      
-      setIsProcessing(true);
-      const scannedBarcode = result.getText();
-      
-      // Validar que el código no esté vacío
-      if (!scannedBarcode || scannedBarcode.trim() === '') {
-        setIsProcessing(false);
-        return;
-      }
-      
-      const product = productsForSale.find(p => 
-        p.barcodes && (
-          (Array.isArray(p.barcodes) && p.barcodes.includes(scannedBarcode)) ||
-          (typeof p.barcodes === 'string' && p.barcodes.split(',').map(b => b.trim()).includes(scannedBarcode))
-        )
-      );
-      
-      if (product) {
-        addToCart(product);
-        setIsScanning(false);
-        failedAttempts.current = 0; // Resetear contador de fallos
-        // Mostrar feedback visual de éxito
-        console.log(`Producto agregado: ${product.name}`);
-      } else {
-        console.warn(`Product with barcode ${scannedBarcode} not found or out of stock in this location.`);
-        // Solo mostrar alerta si no hemos excedido el límite de intentos fallidos
-        if (failedAttempts.current < maxFailedAttempts) {
-          alert(`Producto con código ${scannedBarcode} no encontrado o sin existencias en esta tienda.`);
-        }
-        failedAttempts.current++;
-      }
-      setIsProcessing(false);
-    },
-    onError(error) {
-      // Solo registrar errores importantes, no los comunes de "no se detecta código"
-      if (!error.message.includes('No MultiFormat Readers were able to detect the code')) {
-        console.error('Error en escaneo de código de barras:', error);
-      }
-      
-      // Resetear estado de procesamiento si hay un error
-      if (isProcessing) {
-        setIsProcessing(false);
-      }
-    },
-    paused: !isScanning,
-    video: {
-      facingMode: 'environment', // Use back camera if available
-      width: { min: 640, ideal: 1920, max: 1920 }, // Mayor resolución para mejor detección
-      height: { min: 480, ideal: 1080, max: 1080 },
-      frameRate: { ideal: 30, max: 60 }, // Más cuadros por segundo
-      aspectRatio: 16/9, // Relación de aspecto común
-      focusMode: 'continuous', // Enfoque automático continuo si está disponible
-    },
-    // Configurar formatos específicos para mejorar la detección
-    formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'data_matrix'],
-    // Reducir el retraso entre escaneos para mayor responsividad
-    delay: 100,
-  });
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -548,12 +476,11 @@ export default function POSPage() {
           </div>
 
           {isScanning && (
-            <div className="mb-3 flex-shrink-0">
-              <video ref={ref} className="w-full max-w-md h-auto aspect-video bg-[#3a3a4a] rounded-md mx-auto"></video>
-              <p className="text-center text-xs text-[#a0a0b0] mt-1">Escaneando código de barras...</p>
-            </div>
-          )}
-
+                  <ScannerComponent
+                    onScan={handleScan}
+                    onClose={() => setIsScanning(false)}
+                  />
+                )}
           <div className="flex flex-wrap gap-1.5 mb-3 flex-shrink-0">
             {categories.slice(0, 6).map(c => <Button key={c.id} variant="outline" size="sm" className="py-0.5 font-medium text-xs whitespace-nowrap text-[#F0F0F0] border-[#3a3a4a] hover:bg-[#3a3a4a] transition-all duration-200 hover:scale-105">{c.name}</Button>)}
             {categories.length > 6 && (

@@ -1,20 +1,46 @@
-import React, { useState } from 'react';
-import { Package, Search, Plus, Edit, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, Search, Plus, Edit, Trash2, UserMinus, Scan } from 'lucide-react';
 import useAppStore from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import ProductFormModal from '../features/products/ProductFormModal';
 import InventoryBatchFormModal from '../features/inventory/InventoryBatchFormModal';
 import Modal from '../components/ui/Modal';
+import ConfirmationDialog from '../components/ui/ConfirmationDialog';
+import EmployeeConsumptionModal from '../features/inventory/components/EmployeeConsumptionModal';
+import ScannerComponent from '../components/qr/ScannerComponent';
+import useNotification from '../features/notifications/hooks/useNotification';
 
 const InventoryPage = () => {
-  const { 
-    products, 
-    categories, 
-    inventoryBatches, 
+  const {
+    products,
+    categories,
+    inventoryBatches,
     stores,
+    currentUser,
     addToShoppingList,
-    addInventoryBatch
-  } = useAppStore();
+    addInventoryBatch,
+    deleteInventoryBatch,
+    loadStores,
+    loadProducts,
+  } = useAppStore(state => ({
+    products: state.products,
+    categories: state.categories,
+    inventoryBatches: state.inventoryBatches,
+    stores: state.stores,
+    currentUser: state.currentUser,
+    addToShoppingList: state.addToShoppingList,
+    addInventoryBatch: state.addInventoryBatch,
+    deleteInventoryBatch: state.deleteInventoryBatch,
+    loadStores: state.loadStores,
+    loadProducts: state.loadProducts,
+  }));
+  
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState(null);
+  const [showEmployeeConsumptionModal, setShowEmployeeConsumptionModal] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const { showSuccess, showError } = useNotification();
+
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -22,6 +48,17 @@ const InventoryPage = () => {
   const [currentProduct, setCurrentProduct] = useState(null);
   const [showInventoryBatchModal, setShowInventoryBatchModal] = useState(false);
   const [currentBatch, setCurrentBatch] = useState(null);
+  
+  useEffect(() => {
+    // Fetch stores if they are not already in the store
+    if (stores.length === 0) {
+      loadStores();
+    }
+    // Fetch products if they are not already in the store
+    if (products.length === 0) {
+      loadProducts();
+    }
+  }, [stores.length, loadStores, products.length, loadProducts]);
   
   // Combine product info with inventory batches and store names
   const inventoryByLocation = inventoryBatches.map(batch => {
@@ -37,6 +74,7 @@ const InventoryPage = () => {
       minStockThreshold: product.minStockThreshold?.[batch.locationId] || 0,
       locationName: store.name || batch.locationId,
       productSku: product.sku || '',
+      barcode: product.barcode || '',
       expirationDate: batch.expirationDate || null
     };
   });
@@ -73,27 +111,51 @@ const InventoryPage = () => {
   // Get unique categories for the filter dropdown
   const uniqueCategories = [...new Set(products.map(p => categories.find(c => c.id === p.categoryId)?.name).filter(Boolean))];
 
+  const canManageConsumption = currentUser?.role === 'admin' || currentUser?.role === 'gerente';
+
+  const handleScan = (scannedBarcode) => {
+    const product = inventoryByLocation.find(p => p.barcode === scannedBarcode);
+    if (product) {
+      setSearchTerm(product.productName);
+      showSuccess(`Producto encontrado: ${product.productName}`);
+    } else {
+      showError(`Producto con código ${scannedBarcode} no encontrado.`);
+    }
+    setIsScanning(false);
+  };
+
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#1D1D27]">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-[#F0F0F0]">Inventario por Lotes</h2>
-        <button 
-          className="bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
-          onClick={() => {
-            // Open inventory batch modal
-            setCurrentBatch(null);
-            setShowInventoryBatchModal(true);
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          <span>Agregar Lote</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          {canManageConsumption && (
+            <button 
+              className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+              onClick={() => setShowEmployeeConsumptionModal(true)}
+            >
+              <UserMinus className="w-4 h-4" />
+              <span>Consumo Empleado</span>
+            </button>
+          )}
+          <button 
+            className="bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+            onClick={() => {
+              // Open inventory batch modal
+              setCurrentBatch(null);
+              setShowInventoryBatchModal(true);
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            <span>Agregar Lote</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-[#282837] rounded-xl border border-[#3a3a4a] p-4">
         <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
-          <div className="flex-1">
-            <div className="relative">
+          <div className="flex-1 flex items-center gap-2">
+            <div className="relative flex-1">
               <input
                 type="text"
                 placeholder="Buscar productos o SKU..."
@@ -103,6 +165,12 @@ const InventoryPage = () => {
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#a0a0b0] w-4 h-4" />
             </div>
+            <button
+              onClick={() => setIsScanning(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+            >
+              <Scan className="w-4 h-4" />
+            </button>
           </div>
           <select 
             value={selectedCategory} 
@@ -167,10 +235,26 @@ const InventoryPage = () => {
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center space-x-2">
-                        <button className="p-2 text-[#a0a0b0] hover:text-[#8A2BE2] hover:bg-[#3a3a4a] rounded-lg transition-colors">
+                        <button 
+                          className={`p-2 rounded-lg transition-colors ${
+                            item.productName === 'Producto Desconocido' 
+                              ? 'text-yellow-500 hover:text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20' 
+                              : 'text-[#a0a0b0] hover:text-[#8A2BE2] hover:bg-[#3a3a4a]'
+                          }`}
+                          onClick={() => {
+                            setCurrentBatch(item.batches[0]); // Pass the first batch of the grouped item
+                            setShowInventoryBatchModal(true);
+                          }}
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-[#a0a0b0] hover:text-red-500 hover:bg-[#3a3a4a] rounded-lg transition-colors">
+                        <button
+                          className="p-2 text-[#a0a0b0] hover:text-red-500 hover:bg-[#3a3a4a] rounded-lg transition-colors"
+                          onClick={() => {
+                            setBatchToDelete(item.batches[0]);
+                            setShowDeleteConfirm(true);
+                          }}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -222,7 +306,7 @@ const InventoryPage = () => {
       {/* Inventory Batch Form Modal */}
       <Modal 
         isOpen={showInventoryBatchModal}
-        title={currentBatch ? "Editar Lote de Inventario" : "Agregar Lote de Inventario"} 
+        title={currentBatch && currentBatch.productName === 'Producto Desconocido' ? "Vincular Producto a Lote" : (currentBatch ? "Editar Lote de Inventario" : "Agregar Lote de Inventario")} 
         onClose={() => {
           setShowInventoryBatchModal(false);
           setCurrentBatch(null);
@@ -236,6 +320,39 @@ const InventoryPage = () => {
           }} 
         />
       </Modal>
+      
+      {/* Employee Consumption Modal */}
+      {showEmployeeConsumptionModal && (
+        <EmployeeConsumptionModal onClose={() => setShowEmployeeConsumptionModal(false)} />
+      )}
+
+      {/* Scanner Modal */}
+      {isScanning && (
+        <ScannerComponent
+          onScan={handleScan}
+          onClose={() => setIsScanning(false)}
+        />
+      )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setBatchToDelete(null);
+        }}
+        onConfirm={() => {
+          if (batchToDelete) {
+            deleteInventoryBatch(batchToDelete.id);
+            setShowDeleteConfirm(false);
+            setBatchToDelete(null);
+          }
+        }}
+        title="Eliminar Lote de Inventario"
+        message={`¿Estás seguro de que deseas eliminar este lote de inventario? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

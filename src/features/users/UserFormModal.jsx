@@ -42,11 +42,11 @@ const UserFormModal = ({ user, onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const userData = {
       ...formData
     };
-    
+
     // Only include password if it's a new user or a new password is provided
     if (!user && formData.password) {
       userData.password = formData.password;
@@ -54,20 +54,15 @@ const UserFormModal = ({ user, onClose, onSuccess }) => {
       // For existing users, only update password if a new one is provided
       userData.password = formData.password;
     }
+
+    const result = user ? await updateUser(user.id, userData) : await addUser(userData);
     
-    try {
-      if (user) {
-        // Update existing user
-        await updateUser(user.id, userData);
-      } else {
-        // Add new user
-        await addUser(userData);
-      }
+    if (result.success) {
       onSuccess && onSuccess();
       onClose();
-    } catch (error) {
-      console.error('Error saving user:', error);
-      alert('Error al guardar el usuario: ' + error.message);
+    } else {
+      // Manejar error
+      console.error('Error al guardar el usuario:', result.error);
     }
   };
 
@@ -77,7 +72,7 @@ const UserFormModal = ({ user, onClose, onSuccess }) => {
         <h3 className="text-xl font-bold text-[#F0F0F0]">
           {user ? 'Editar Usuario' : 'Agregar Usuario'}
         </h3>
-        <button 
+        <button
           onClick={onClose}
           className="text-[#a0a0b0] hover:text-[#F0F0F0]"
         >
@@ -97,7 +92,7 @@ const UserFormModal = ({ user, onClose, onSuccess }) => {
             className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none"
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-[#a0a0b0] mb-1">Email *</label>
           <input
@@ -109,7 +104,7 @@ const UserFormModal = ({ user, onClose, onSuccess }) => {
             className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none"
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-[#a0a0b0] mb-1">
             {user ? 'Nueva Contraseña (opcional)' : 'Contraseña *'}
@@ -123,7 +118,7 @@ const UserFormModal = ({ user, onClose, onSuccess }) => {
             placeholder={user ? "Dejar vacío para mantener contraseña actual" : "Contraseña del usuario"}
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-[#a0a0b0] mb-1">Rol *</label>
           <select
@@ -138,7 +133,7 @@ const UserFormModal = ({ user, onClose, onSuccess }) => {
             <option value="admin">Administrador</option>
           </select>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-[#a0a0b0] mb-1">Tienda</label>
           <select
@@ -155,7 +150,7 @@ const UserFormModal = ({ user, onClose, onSuccess }) => {
             ))}
           </select>
         </div>
-        
+
         <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"

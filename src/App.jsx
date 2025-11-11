@@ -1,14 +1,21 @@
 import React, { useEffect } from 'react';
 import Router from './Router';
 import useAppStore from './store/useAppStore';
+import { initializeSupabaseCollections } from './utils/supabaseAPI';
+import NotificationProvider from './features/notifications/NotificationProvider';
 
 const App = () => {
-  const { initialize, darkMode, initNetworkListeners, syncPendingOperations, isOnline } = useAppStore();
+  // Select state separately to prevent re-renders
+  const darkMode = useAppStore(state => state.darkMode);
+  // Get actions directly from the store's state outside of render to ensure stability
+  const initNetworkListeners = useAppStore.getState().initNetworkListeners;
+  const syncPendingOperations = useAppStore.getState().syncPendingOperations;
 
   useEffect(() => {
-    initialize();
+    // Initialize essential app-wide services only once on mount
+    initializeSupabaseCollections();
     initNetworkListeners();
-  }, [initialize, initNetworkListeners]);
+  }, []); // Empty dependency array to run only once on mount
 
   useEffect(() => {
     if (darkMode) {
@@ -33,11 +40,13 @@ const App = () => {
   }, [syncPendingOperations]);
 
   return (
-    <div className="min-h-screen w-full bg-[#1D1D27]">
-      <div className="flex flex-col h-screen">
-        <Router />
+    <NotificationProvider>
+      <div className="min-h-screen w-full bg-[#1D1D27]">
+        <div className="flex flex-col h-screen">
+          <Router />
+        </div>
       </div>
-    </div>
+    </NotificationProvider>
   );
 };
 

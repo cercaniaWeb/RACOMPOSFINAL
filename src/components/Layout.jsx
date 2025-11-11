@@ -146,13 +146,31 @@ const Layout = ({ children }) => {
             )}
           </div>
           
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-[#8A2BE2] rounded-full flex items-center justify-center">
-              <User className="w-4 h-4 text-white" />
-            </div>
-            <span className="hidden md:block text-[#F0F0F0] font-medium">
-              {currentUser?.name || 'Usuario'}
-            </span>
+          <div className="relative">
+            <button 
+              className="flex items-center space-x-3"
+              onClick={() => setShowNotifications(p => !p)} // Re-using state logic for simplicity, consider a dedicated state
+              data-testid="user-menu-button"
+            >
+              <div className="w-8 h-8 bg-[#8A2BE2] rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-white" />
+              </div>
+              <span className="hidden md:block text-[#F0F0F0] font-medium">
+                {currentUser?.name || 'Usuario'}
+              </span>
+            </button>
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-48 bg-[#282837] rounded-xl border border-[#3a3a4a] shadow-xl z-50">
+                <button
+                  onClick={logout}
+                  className="flex items-center space-x-3 w-full px-4 py-3 text-left text-[#a0a0b0] hover:text-[#F0F0F0] hover:bg-[#3a3a4a] rounded-lg"
+                  data-testid="logout-button"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Cerrar Sesión</span>
+                </button>
+              </div>
+            )}
           </div>
           
           <button className="md:hidden p-2 text-[#a0a0b0] hover:text-[#F0F0F0]">

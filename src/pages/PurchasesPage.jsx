@@ -3,7 +3,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import useAppStore from '../store/useAppStore';
-import MiscellaneousPurchaseModal from '../features/purchases/MiscellaneousPurchaseModal';
+import ExpenseForm from '../features/purchases/ExpenseForm';
 
 const PurchasesPage = () => {
   const { expenses } = useAppStore();
@@ -49,7 +49,7 @@ const PurchasesPage = () => {
       </Card>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Registrar Gasto Misceláneo">
-        <MiscellaneousPurchaseModal onClose={() => setIsModalOpen(false)} />
+        <ExpenseForm onClose={() => setIsModalOpen(false)} />
       </Modal>
     </div>
   );

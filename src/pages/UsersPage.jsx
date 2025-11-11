@@ -3,22 +3,25 @@ import { Plus, User, Edit, Trash2 } from 'lucide-react';
 import useAppStore from '../store/useAppStore';
 import UserFormModal from '../features/users/UserFormModal';
 import Modal from '../components/ui/Modal';
+import ConfirmationDialog from '../components/ui/ConfirmationDialog';
 
 const UsersPage = () => {
-  const { users, addUser, updateUser, deleteUser, stores, loadUsers } = useAppStore();
+  const { users, addUser, updateUser, deleteUser, stores, loadUsers, loadStores } = useAppStore();
   const [showUserModal, setShowUserModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+
   useEffect(() => {
-    // Load users from the database
     loadUsers();
-  }, [loadUsers]);
+    loadStores(); // Load stores when the component mounts
+  }, [loadUsers, loadStores]);
 
   return (
     <div className="flex-1 p-6 space-y-6 bg-[#1D1D27]">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-[#F0F0F0]">Gestión de Usuarios</h2>
-        <button 
+        <button
           className="bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
           onClick={() => {
             setCurrentUser(null);
@@ -60,7 +63,7 @@ const UsersPage = () => {
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex items-center space-x-2">
-                      <button 
+                      <button
                         onClick={() => {
                           setCurrentUser(user);
                           setShowUserModal(true);
@@ -69,8 +72,11 @@ const UsersPage = () => {
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => deleteUser(user.id)}
+                      <button
+                        onClick={() => {
+                          setUserToDelete(user);
+                          setShowDeleteConfirm(true);
+                        }}
                         className="p-2 text-[#a0a0b0] hover:text-red-500 hover:bg-[#3a3a4a] rounded-lg transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -85,23 +91,43 @@ const UsersPage = () => {
       </div>
 
       {/* User Form Modal */}
-      <Modal 
+      <Modal
         isOpen={showUserModal}
-        title={currentUser ? "Editar Usuario" : "Nuevo Usuario"} 
+        title={currentUser ? "Editar Usuario" : "Nuevo Usuario"}
         onClose={() => {
           setShowUserModal(false);
           setCurrentUser(null);
         }}
       >
-        <UserFormModal 
-          user={currentUser} 
+        <UserFormModal
+          user={currentUser}
           stores={stores}
           onClose={() => {
             setShowUserModal(false);
             setCurrentUser(null);
-          }} 
+          }}
         />
       </Modal>
+      
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setUserToDelete(null);
+        }}
+        onConfirm={() => {
+          if (userToDelete) {
+            deleteUser(userToDelete.id);
+            setShowDeleteConfirm(false);
+            setUserToDelete(null);
+          }
+        }}
+        title="Eliminar Usuario"
+        message={`¿Estás seguro de que deseas eliminar al usuario ${userToDelete?.name}? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

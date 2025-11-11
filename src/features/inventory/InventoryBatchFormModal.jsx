@@ -3,7 +3,7 @@ import useAppStore from '../../store/useAppStore';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 
-const InventoryBatchFormModal = ({ batch, onClose }) => {
+const InventoryBatchFormModal = ({ batch, onClose, onSave }) => {
   const { products, stores, addInventoryBatch, updateInventoryBatch } = useAppStore();
   const [formData, setFormData] = useState({
     productId: '',
@@ -12,6 +12,8 @@ const InventoryBatchFormModal = ({ batch, onClose }) => {
     cost: 0,
     expirationDate: '',
   });
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [productError, setProductError] = useState('');
 
   useEffect(() => {
     if (batch) {
@@ -22,6 +24,8 @@ const InventoryBatchFormModal = ({ batch, onClose }) => {
         cost: batch.cost || 0,
         expirationDate: batch.expirationDate || '',
       });
+      const product = products.find(p => p.id === batch.productId);
+      setProductSearchTerm(product ? product.name : (batch.productName === 'Producto Desconocido' ? '' : batch.productName || ''));
     } else {
       setFormData({
         productId: '',
@@ -30,8 +34,9 @@ const InventoryBatchFormModal = ({ batch, onClose }) => {
         cost: 0,
         expirationDate: '',
       });
+      setProductSearchTerm('');
     }
-  }, [batch]);
+  }, [batch, products]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -41,11 +46,32 @@ const InventoryBatchFormModal = ({ batch, onClose }) => {
     }));
   };
 
+  const handleProductSearchChange = (e) => {
+    const value = e.target.value;
+    setProductSearchTerm(value);
+
+    const selectedProduct = products.find(p => p.name === value);
+    if (selectedProduct) {
+      setFormData(prev => ({ ...prev, productId: selectedProduct.id }));
+      setProductError('');
+    } else {
+      setFormData(prev => ({ ...prev, productId: '' }));
+      setProductError('Por favor, selecciona un producto válido de la lista.');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (!formData.productId) {
+      setProductError('Debes seleccionar un producto.');
+      return;
+    }
+
     try {
-      if (batch) {
+      if (onSave) {
+        await onSave(formData);
+      } else if (batch) {
         // Update existing batch
         await updateInventoryBatch(batch.id, formData);
       } else {
@@ -61,22 +87,26 @@ const InventoryBatchFormModal = ({ batch, onClose }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="productId" className="block text-sm font-medium text-gray-700">Producto</label>
-        <select
-          id="productId"
-          name="productId"
-          value={formData.productId}
-          onChange={handleChange}
+        <label htmlFor="productSearch" className="block text-sm font-medium text-gray-700">Producto</label>
+        <Input
+          id="productSearch"
+          name="productSearch"
+          type="text"
+          value={productSearchTerm}
+          onChange={handleProductSearchChange}
+          placeholder="Busca o selecciona un producto"
+          list="product-options"
           required
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white text-black"
-        >
-          <option value="">Selecciona un producto</option>
+          className="mt-1 block w-full"
+        />
+        <datalist id="product-options">
           {products.map(product => (
-            <option key={product.id} value={product.id}>
-              {product.name}
-            </option>
+            <option key={product.id} value={product.name} data-product-id={product.id} />
           ))}
-        </select>
+        </datalist>
+        {/* Hidden input to store the actual productId */}
+        <input type="hidden" name="productId" value={formData.productId} />
+        {productError && <p className="mt-1 text-sm text-red-600">{productError}</p>}
       </div>
 
       <div>

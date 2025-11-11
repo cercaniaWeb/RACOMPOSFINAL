@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env.local
+.DS_Store
+*.log
+*.backup
+.qwen/
+.gemini/
+.genkit/
+test-results/
+playwright-report/

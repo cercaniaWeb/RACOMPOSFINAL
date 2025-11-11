@@ -1,18 +1,46 @@
 import { supabase } from '../config/supabase';
 
+const DEFAULT_PAGE_SIZE = 50;
+
+// Helper to transform snake_case to camelCase
+const toCamelCase = (obj) => {
+  if (Array.isArray(obj)) {
+    return obj.map(v => toCamelCase(v));
+  } else if (obj !== null && obj.constructor === Object) {
+    return Object.keys(obj).reduce((result, key) => {
+      const camelKey = key.replace(/_([a-z])/g, g => g[1].toUpperCase());
+      result[camelKey] = toCamelCase(obj[key]);
+      // Keep original snake_case key for compatibility where needed
+      if (camelKey !== key) {
+        result[key] = obj[key];
+      }
+      return result;
+    }, {});
+  }
+  return obj;
+};
+
+
 // Funciones para productos
-export const getProducts = async () => {
-  const { data, error } = await supabase
+export const getProducts = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE, searchTerm = '' } = {}) => {
+  let query = supabase
     .from('products')
-    .select('*')
-    .order('name', { ascending: true });
+    .select('*', { count: 'exact' })
+    .order('name', { ascending: true })
+    .range((page - 1) * pageSize, page * pageSize - 1);
+
+  if (searchTerm) {
+    query = query.or(`name.ilike.%${searchTerm}%,barcode.eq.${searchTerm},sku.eq.${searchTerm}`);
+  }
+
+  const { data, error, count } = await query;
 
   if (error) {
     console.error('Error obteniendo productos:', error);
-    return [];
+    return { data: [], count: 0 };
   }
 
-  return data;
+  return { data: toCamelCase(data), count };
 };
 
 export const getProduct = async (id) => {
@@ -27,7 +55,7 @@ export const getProduct = async (id) => {
     return null;
   }
 
-  return data;
+  return toCamelCase(data);
 };
 
 export const addProduct = async (productData) => {
@@ -51,6 +79,8 @@ export const addProduct = async (productData) => {
     mappedProductData.image_url = mappedProductData.image;
     delete mappedProductData.image;
   }
+
+  // Eliminar campos que no existen en la tabla de productos
   if ('expirationDate' in mappedProductData) {
     delete mappedProductData.expirationDate; // Este campo no existe en la base de datos de productos
   }
@@ -69,6 +99,29 @@ export const addProduct = async (productData) => {
   if ('wholesalePrice' in mappedProductData) {
     delete mappedProductData.wholesalePrice; // Este campo no existe en la base de datos
   }
+  if ('inventoryData' in mappedProductData) {
+    delete mappedProductData.inventoryData; // Este campo no existe en la base de datos
+  }
+
+  // Mapear nuevos campos que ahora sí existen en la tabla
+  if ('supplierId' in mappedProductData) {
+    mappedProductData.supplier_id = mappedProductData.supplierId;
+    delete mappedProductData.supplierId;
+  }
+  if ('taxRate' in mappedProductData) {
+    mappedProductData.tax_rate = mappedProductData.taxRate;
+    delete mappedProductData.taxRate;
+  }
+  if ('isActive' in mappedProductData) {
+    mappedProductData.is_active = mappedProductData.isActive;
+    delete mappedProductData.isActive;
+  }
+  if ('minStockThreshold' in mappedProductData) {
+    // Este campo ya existe como JSONB en la base de datos con nombre snake_case
+    mappedProductData.min_stock_threshold = mappedProductData.minStockThreshold;
+    delete mappedProductData.minStockThreshold;
+  }
+  // Los campos 'brand', 'weight', 'notes', 'tags' ya existen en la tabla con esos nombres
 
   // Agregar campos automáticos
   mappedProductData.created_at = new Date().toISOString();
@@ -127,6 +180,29 @@ export const updateProduct = async (id, productData) => {
   if ('wholesalePrice' in mappedProductData) {
     delete mappedProductData.wholesalePrice; // Este campo no existe en la base de datos
   }
+  if ('inventoryData' in mappedProductData) {
+    delete mappedProductData.inventoryData; // Este campo no existe en la base de datos
+  }
+
+  // Mapear nuevos campos que ahora sí existen en la tabla
+  if ('supplierId' in mappedProductData) {
+    mappedProductData.supplier_id = mappedProductData.supplierId;
+    delete mappedProductData.supplierId;
+  }
+  if ('taxRate' in mappedProductData) {
+    mappedProductData.tax_rate = mappedProductData.taxRate;
+    delete mappedProductData.taxRate;
+  }
+  if ('isActive' in mappedProductData) {
+    mappedProductData.is_active = mappedProductData.isActive;
+    delete mappedProductData.isActive;
+  }
+  if ('minStockThreshold' in mappedProductData) {
+    // Este campo ya existe como JSONB en la base de datos con nombre snake_case
+    mappedProductData.min_stock_threshold = mappedProductData.minStockThreshold;
+    delete mappedProductData.minStockThreshold;
+  }
+  // Los campos 'brand', 'weight', 'notes', 'tags' ya existen en la tabla con esos nombres
 
   // Actualizar el campo updated_at
   mappedProductData.updated_at = new Date().toISOString();
@@ -155,56 +231,37 @@ export const deleteProduct = async (id) => {
 };
 
 // Funciones para categorías
+// WARNING: This function fetches all categories to build a tree structure.
+// If the number of categories becomes very large, this can cause performance issues.
+// Consider refactoring to fetch categories on-demand or implementing a more scalable solution if needed.
 export const getCategories = async () => {
-  // First get all categories
-  const { data: allCategories, error: categoriesError } = await supabase
+  const { data, error } = await supabase
     .from('categories')
     .select('*')
     .order('name', { ascending: true });
 
-  if (categoriesError) {
-    console.error('Error obteniendo categorías:', categoriesError);
+  if (error) {
+    console.error('Error obteniendo categorías:', error);
     return [];
   }
 
-  // Build the hierarchical structure
-  const categoriesWithSubcategories = allCategories.map(category => {
-    // Convert snake_case to camelCase for consistency
-    return {
-      id: category.id,
-      name: category.name,
-      parentId: category.parent_id,
-      parent_id: category.parent_id,
-      created_at: category.created_at,
-      updated_at: category.updated_at
-    };
-  });
-
-  // Build the tree structure
-  const categoriesTree = [];
   const categoryMap = {};
-
-  // Create a map of categories for easier lookup
-  categoriesWithSubcategories.forEach(cat => {
-    categoryMap[cat.id] = { ...cat, subcategories: [] };
+  data.forEach(cat => {
+    categoryMap[cat.id] = { ...toCamelCase(cat), subcategories: [] };
   });
 
-  // Build the tree
-  categoriesWithSubcategories.forEach(cat => {
-    if (cat.parentId) {
-      // This is a subcategory
-      const parent = categoryMap[cat.parentId];
-      if (parent) {
-        parent.subcategories.push(categoryMap[cat.id]);
-      }
+  const tree = [];
+  data.forEach(cat => {
+    if (cat.parent_id && categoryMap[cat.parent_id]) {
+      categoryMap[cat.parent_id].subcategories.push(categoryMap[cat.id]);
     } else {
-      // This is a main category
-      categoriesTree.push(categoryMap[cat.id]);
+      tree.push(categoryMap[cat.id]);
     }
   });
 
-  return categoriesTree;
+  return tree;
 };
+
 
 export const addCategory = async (categoryData) => {
   // Convert camelCase to snake_case for database
@@ -255,18 +312,20 @@ export const updateCategory = async (id, categoryData) => {
 };
 
 // Funciones para usuarios
-export const getUsers = async () => {
-  const { data, error } = await supabase
+export const getUsers = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) => {
+  const { data, error, count } = await supabase
     .from('users')
-    .select('*')
-    .order('name', { ascending: true });
+    .select('*', { count: 'exact' })
+    .order('name', { ascending: true })
+    .range((page - 1) * pageSize, page * pageSize - 1);
+
 
   if (error) {
     console.error('Error obteniendo usuarios:', error);
-    return [];
+    return { data: [], count: 0 };
   }
 
-  return data;
+  return { data: toCamelCase(data), count };
 };
 
 export const getUser = async (id) => {
@@ -281,30 +340,76 @@ export const getUser = async (id) => {
     return null;
   }
 
-  return data;
+  return toCamelCase(data);
 };
 
 export const addUser = async (userData) => {
-  // Copiar los datos del usuario sin el password para evitar conflictos
   const { password, ...userProperties } = userData;
-  
-  const { data, error } = await supabase
-    .from('users')
-    .insert([{
-      ...userProperties,
-      password_hash: password ? await hashPassword(password) : null, // Si se proporciona contraseña, hacer hash
+
+  // Si se proporciona una contraseña, crear el usuario en Supabase Auth
+  if (password) {
+    // Crear usuario en Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: userProperties.email,
+      password: password,
+    });
+
+    if (authError) {
+      console.error('Error creando usuario en Supabase Auth:', authError);
+      throw new Error(`Error creando usuario: ${authError.message}`);
+    }
+
+    // Extraer el ID del usuario recién creado
+    const userId = authData.user?.id || authData.user.id;
+
+    // Mapear campos de camelCase a snake_case para la base de datos
+    const { storeId, ...otherProps } = userProperties;
+    const userDataToInsert = {
+      id: userId,  // Usar el ID de Supabase Auth
+      ...otherProps,
+      store_id: storeId || null, // Mapear a snake_case
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
-    }])
-    .select()
-    .single();
+    };
 
-  if (error) {
-    console.error('Error agregando usuario:', error);
-    throw new Error(error.message);
+    const { error } = await supabase
+      .from('users')
+      .insert([userDataToInsert])
+      .select()
+      .single();
+
+    if (error) {
+      // Si falla la inserción en la tabla personalizada, eliminar el usuario de Auth
+      await supabase.auth.admin.deleteUser(userId);
+      console.error('Error agregando usuario a la tabla personalizada:', error);
+      throw new Error(error.message);
+    }
+
+    return userId;
+  } else {
+    console.warn('Se intentó crear un usuario sin contraseña. Esto limitará su capacidad de inicio de sesión.');
+    // Mapear campos de camelCase a snake_case para la base de datos
+    const { storeId, ...otherProps } = userProperties;
+    const userDataToInsert = {
+      ...otherProps,
+      store_id: storeId || null, // Mapear a snake_case
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('users')
+      .insert([userDataToInsert])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error agregando usuario:', error);
+      throw new Error(error.message);
+    }
+
+    return data.id;
   }
-
-  return data.id;
 };
 
 // Función auxiliar para hacer hash de la contraseña (solo para fines de ejemplo)
@@ -316,18 +421,17 @@ const hashPassword = async (password) => {
 };
 
 export const updateUser = async (id, userData) => {
-  // Copiar los datos del usuario sin el password para evitar conflictos
   const { password, ...userProperties } = userData;
-  
+
+  // Mapear campos de camelCase a snake_case para la base de datos
+  const { storeId, ...otherProps } = userProperties;
+
+  // Actualizar datos en la tabla personalizada (sin la contraseña)
   const updateData = {
-    ...userProperties,
+    ...otherProps,
+    store_id: storeId || null, // Mapear a snake_case
     updated_at: new Date().toISOString()
   };
-  
-  // Si se proporciona una contraseña, agregarla al hash
-  if (password) {
-    updateData.password_hash = await hashPassword(password);
-  }
 
   const { error } = await supabase
     .from('users')
@@ -337,6 +441,47 @@ export const updateUser = async (id, userData) => {
   if (error) {
     console.error('Error actualizando usuario:', error);
     throw new Error(error.message);
+  }
+
+  // Si se proporciona una nueva contraseña y es para el usuario actual, actualizarla
+  if (password) {
+    // Solo se permite cambiar la contraseña actual si es el mismo usuario
+    // Para cambiar contraseña de otro usuario, se debe usar un proceso de backend
+    // o enviar un correo de restablecimiento de contraseña
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session?.user?.id === id) {
+      // El usuario actual está actualizando su propia contraseña
+      const { error: authError } = await supabase.auth.updateUser({
+        password: password
+      });
+      
+      if (authError) {
+        console.error("Error actualizando contraseña en Supabase Auth:", authError);
+        throw authError; // Lanzar el error para que el UI lo maneje
+      }
+    } else {
+      // Si es un admin intentando cambiar contraseña de otro usuario,
+      // enviar un correo de restablecimiento de contraseña
+      const { data: userData } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', id)
+        .single();
+      
+      if (userData?.email) {
+        // Enviar un correo de restablecimiento de contraseña
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(userData.email);
+        if (resetError) {
+          console.error("Error enviando correo de restablecimiento de contraseña:", resetError);
+          // No lanzamos el error porque la actualización de datos principales ya se realizó
+        } else {
+          console.log("Correo de restablecimiento de contraseña enviado a:", userData.email);
+        }
+      } else {
+        throw new Error("No se encontró el email del usuario para enviar correo de restablecimiento");
+      }
+    }
   }
 };
 
@@ -364,28 +509,44 @@ export const getStores = async () => {
     return [];
   }
 
-  return data;
+  return toCamelCase(data);
+};
+
+export const getStore = async (id) => {
+  const { data, error } = await supabase
+    .from('stores')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error obteniendo tienda:', error);
+    return null;
+  }
+
+  return toCamelCase(data);
 };
 
 // Funciones para lotes de inventario
-export const getInventoryBatches = async () => {
-  const { data, error } = await supabase
+export const getInventoryBatches = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) => {
+  const { data, error, count } = await supabase
     .from('inventory_batches')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (error) {
     console.error('Error obteniendo lotes de inventario:', error);
-    return [];
+    return { data: [], count: 0 };
   }
 
-  return data;
+  return { data: toCamelCase(data), count };
 };
 
 export const addInventoryBatch = async (inventoryData) => {
   // Mapear campos del formulario a los campos correctos de la base de datos
   const mappedInventoryData = { ...inventoryData };
-  
+
   // Eliminar campos que no existen en la tabla inventory_batches
   if ('createdAt' in mappedInventoryData) {
     delete mappedInventoryData.createdAt; // No existe en la tabla real
@@ -399,7 +560,7 @@ export const addInventoryBatch = async (inventoryData) => {
   if ('updated_at' in mappedInventoryData) {
     delete mappedInventoryData.updated_at; // Ya se establece automáticamente
   }
-  
+
   // Mapear campos si existen
   if ('productId' in mappedInventoryData) {
     mappedInventoryData.product_id = mappedInventoryData.productId;
@@ -410,7 +571,8 @@ export const addInventoryBatch = async (inventoryData) => {
     delete mappedInventoryData.locationId;
   }
   if ('expirationDate' in mappedInventoryData) {
-    mappedInventoryData.expiration_date = mappedInventoryData.expirationDate;
+    // Convert empty string to null for optional date fields
+    mappedInventoryData.expiration_date = mappedInventoryData.expirationDate === '' ? null : mappedInventoryData.expirationDate;
     delete mappedInventoryData.expirationDate;
   }
   if ('cost' in mappedInventoryData) {
@@ -441,7 +603,7 @@ export const addInventoryBatch = async (inventoryData) => {
 export const updateInventoryBatch = async (id, inventoryData) => {
   // Mapear campos del formulario a los campos correctos de la base de datos
   const mappedInventoryData = { ...inventoryData };
-  
+
   // Eliminar campos que no existen en la tabla inventory_batches
   if ('createdAt' in mappedInventoryData) {
     delete mappedInventoryData.createdAt; // No existe en la tabla real
@@ -455,7 +617,7 @@ export const updateInventoryBatch = async (id, inventoryData) => {
   if ('updated_at' in mappedInventoryData) {
     delete mappedInventoryData.updated_at; // Ya se actualiza automáticamente
   }
-  
+
   // Mapear campos si existen
   if ('productId' in mappedInventoryData) {
     mappedInventoryData.product_id = mappedInventoryData.productId;
@@ -466,7 +628,8 @@ export const updateInventoryBatch = async (id, inventoryData) => {
     delete mappedInventoryData.locationId;
   }
   if ('expirationDate' in mappedInventoryData) {
-    mappedInventoryData.expiration_date = mappedInventoryData.expirationDate;
+    // Convert empty string to null for optional date fields
+    mappedInventoryData.expiration_date = mappedInventoryData.expirationDate === '' ? null : mappedInventoryData.expirationDate;
     delete mappedInventoryData.expirationDate;
   }
   if ('cost' in mappedInventoryData) {
@@ -503,19 +666,19 @@ export const deleteInventoryBatch = async (id) => {
 };
 
 // Funciones para ventas
-export const getSales = async () => {
-  const { data, error } = await supabase
+export const getSales = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) => {
+  const { data, error, count } = await supabase
     .from('sales')
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('date', { ascending: false })
-    .limit(1000);
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (error) {
     console.error('Error obteniendo ventas:', error);
-    return [];
+    return { data: [], count: 0 };
   }
 
-  return data;
+  return { data: toCamelCase(data), count };
 };
 
 export const addSale = async (saleData) => {
@@ -572,18 +735,19 @@ export const addSale = async (saleData) => {
 };
 
 // Funciones para clientes
-export const getClients = async () => {
-  const { data, error } = await supabase
+export const getClients = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) => {
+  const { data, error, count } = await supabase
     .from('clients')
-    .select('*')
-    .order('name', { ascending: true });
+    .select('*', { count: 'exact' })
+    .order('name', { ascending: true })
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (error) {
     console.error('Error obteniendo clientes:', error);
-    return [];
+    return { data: [], count: 0 };
   }
 
-  return data;
+  return { data: toCamelCase(data), count };
 };
 
 export const addClient = async (clientData) => {
@@ -606,51 +770,212 @@ export const addClient = async (clientData) => {
 };
 
 // Funciones para transferencias
-export const getTransfers = async () => {
-  const { data, error } = await supabase
+export const getTransfers = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) => {
+  const { data, error, count } = await supabase
     .from('transfers')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (error) {
     console.error('Error obteniendo transferencias:', error);
-    return [];
+    return { data: [], count: 0 };
   }
 
-  return data;
+  return { data: toCamelCase(data), count };
+};
+
+// Funciones para proveedores
+export const getSuppliers = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) => {
+  const { data, error, count } = await supabase
+    .from('suppliers')
+    .select('*', { count: 'exact' })
+    .order('name', { ascending: true })
+    .range((page - 1) * pageSize, page * pageSize - 1);
+
+  if (error) {
+    console.error('Error obteniendo proveedores:', error);
+    return { data: [], count: 0 };
+  }
+
+  return { data: toCamelCase(data), count };
+};
+
+export const addSupplier = async (supplierData) => {
+  const { data, error } = await supabase
+    .from('suppliers')
+    .insert([{
+      ...supplierData,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error agregando proveedor:', error);
+    throw new Error(error.message);
+  }
+
+  return data.id;
+};
+
+export const updateSupplier = async (id, supplierData) => {
+  const { error } = await supabase
+    .from('suppliers')
+    .update({
+      ...supplierData,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error actualizando proveedor:', error);
+    throw new Error(error.message);
+  }
+};
+
+export const deleteSupplier = async (id) => {
+  const { error } = await supabase
+    .from('suppliers')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error eliminando proveedor:', error);
+    throw new Error(error.message);
+  }
 };
 
 // Funciones para lista de compras
-export const getShoppingList = async () => {
-  const { data, error } = await supabase
+export const getShoppingList = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) => {
+  const { data, error, count } = await supabase
     .from('shopping_list')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (error) {
     console.error('Error obteniendo lista de compras:', error);
-    return [];
+    return { data: [], count: 0 };
   }
 
-  return data;
+  return { data: toCamelCase(data), count };
 };
 
 // Funciones para gastos
-export const getExpenses = async () => {
-  const { data, error } = await supabase
+export const getExpenses = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) => {
+  const { data, error, count } = await supabase
     .from('expenses')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (error) {
     console.error('Error obteniendo gastos:', error);
-    return [];
+    return { data: [], count: 0 };
   }
 
-  return data;
+  return { data: toCamelCase(data), count };
+};
+
+export const addExpense = async (expenseData) => {
+  // Mapear campos del formulario a los campos correctos de la base de datos
+  const mappedExpenseData = { ...expenseData };
+
+  // Mapear campos si existen
+  if ('storeId' in mappedExpenseData) {
+    mappedExpenseData.store_id = mappedExpenseData.storeId;
+    delete mappedExpenseData.storeId;
+  }
+  if ('createdBy' in mappedExpenseData) {
+    mappedExpenseData.created_by = mappedExpenseData.createdBy;
+    delete mappedExpenseData.createdBy;
+  }
+
+  // Asegurar que los campos monetarios sean números válidos
+  if (mappedExpenseData.amount !== undefined) {
+    mappedExpenseData.amount = parseFloat(mappedExpenseData.amount) || 0;
+  }
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .insert([{
+      ...mappedExpenseData,
+      updated_at: new Date().toISOString()
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error agregando gasto:', error);
+    throw new Error(error.message);
+  }
+
+  return data.id;
+};
+
+export const approveExpense = async (expenseId) => {
+  const { data, error } = await supabase
+    .from('expenses')
+    .update({
+      status: 'approved',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', expenseId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error aprobando gasto:', error);
+    throw new Error(error.message);
+  }
+
+  return data.id;
+};
+
+export const updateExpense = async (expenseId, expenseData) => {
+  // Mapear campos del formulario a los campos correctos de la base de datos
+  const mappedExpenseData = { ...expenseData };
+
+  // Mapear campos si existen
+  if ('storeId' in mappedExpenseData) {
+    mappedExpenseData.store_id = mappedExpenseData.storeId;
+    delete mappedExpenseData.storeId;
+  }
+  if ('createdBy' in mappedExpenseData) {
+    mappedExpenseData.created_by = mappedExpenseData.createdBy;
+    delete mappedExpenseData.createdBy;
+  }
+
+  // Asegurar que los campos monetarios sean números válidos
+  if (mappedExpenseData.amount !== undefined) {
+    mappedExpenseData.amount = parseFloat(mappedExpenseData.amount) || 0;
+  }
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .update({
+      ...mappedExpenseData,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', expenseId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error actualizando gasto:', error);
+    throw new Error(error.message);
+  }
+
+  return data.id;
 };
 
 // Funciones para reportes de ventas
+// NOTE: This function still fetches all sales within the date range.
+// For very high volume sales, this could still be a performance issue.
+// A better long-term solution would be to create a database function (RPC)
+// to perform the aggregation on the server.
 export const getSalesReport = async (startDate, endDate, storeId = null, reportType = 'daily') => {
   let query = supabase
     .from('sales')
@@ -690,12 +1015,12 @@ const processSalesReportData = (sales, reportType, startDate, endDate) => {
 
   // Agrupar ventas por período según reportType
   const groupedSales = {};
-  
+
   sales.forEach(sale => {
     // Parsear la fecha de la venta y formatear según el tipo de agrupamiento
     const saleDate = new Date(sale.date);
     let periodKey;
-    
+
     switch(reportType) {
       case 'daily':
         periodKey = saleDate.toISOString().split('T')[0];
@@ -712,7 +1037,7 @@ const processSalesReportData = (sales, reportType, startDate, endDate) => {
       default:
         periodKey = saleDate.toISOString().split('T')[0];
     }
-    
+
     if (!groupedSales[periodKey]) {
       groupedSales[periodKey] = {
         date: periodKey,
@@ -724,18 +1049,18 @@ const processSalesReportData = (sales, reportType, startDate, endDate) => {
         profitMargin: 0
       };
     }
-    
+
     // Asumimos que tenemos información de productos en cada línea de venta para calcular costos
     // Por ahora usamos el total como proxy
     groupedSales[periodKey].transactions += 1;
     groupedSales[periodKey].salesAmount += sale.total || 0;
-    
+
     // Estos valores requerirían más información detallada de los productos vendidos
     // Por ahora usamos cálculos estimados
     groupedSales[periodKey].costAmount += sale.total ? sale.total * 0.7 : 0; // Suponiendo un 70% de costo
     groupedSales[periodKey].profitAmount += sale.total ? sale.total * 0.3 : 0; // Suponiendo un 30% de ganancia
   });
-  
+
   // Calcular el margen de ganancia para cada período
   Object.values(groupedSales).forEach(sale => {
     sale.profitMargin = sale.salesAmount > 0 ? (sale.profitAmount / sale.salesAmount) * 100 : 0;
@@ -758,18 +1083,19 @@ const processSalesReportData = (sales, reportType, startDate, endDate) => {
 };
 
 // Funciones para cierres de caja
-export const getCashClosings = async () => {
-  const { data, error } = await supabase
+export const getCashClosings = async ({ page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) => {
+  const { data, error, count } = await supabase
     .from('cash_closings')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (error) {
     console.error('Error obteniendo cierres de caja:', error);
-    return [];
+    return { data: [], count: 0 };
   }
 
-  return data;
+  return { data: toCamelCase(data), count };
 };
 
 export const addCashClosing = async (cashClosingData) => {
@@ -778,7 +1104,7 @@ export const addCashClosing = async (cashClosingData) => {
     ...cashClosingData,
     created_at: new Date().toISOString(),
   };
-  
+
   const { data, error } = await supabase
     .from('cash_closings')
     .insert([dataToInsert])
@@ -798,11 +1124,13 @@ export const initializeSupabaseCollections = async () => {
     // Verificar si existen categorías y agregar por defecto si no hay
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
-      .select('*');
+      .select('id')
+      .limit(1);
 
     if (categoriesError) {
       console.error('Error obteniendo categorías:', categoriesError);
     } else if (!categories || categories.length === 0) {
+      console.log('No categories found, creating default ones...');
       // Agregar categorías por defecto
       const defaultCategories = [
         { name: 'Abarrotes', parent_id: null },
@@ -826,11 +1154,13 @@ export const initializeSupabaseCollections = async () => {
     // Verificar si existen tiendas y agregar por defecto si no hay
     const { data: stores, error: storesError } = await supabase
       .from('stores')
-      .select('*');
+      .select('id')
+      .limit(1);
 
     if (storesError) {
       console.error('Error obteniendo tiendas:', storesError);
     } else if (!stores || stores.length === 0) {
+      console.log('No stores found, creating default ones...');
       // Agregar tiendas por defecto
       const defaultStores = [
         { id: 'bodega-central', name: 'Bodega Central' },
@@ -840,25 +1170,20 @@ export const initializeSupabaseCollections = async () => {
 
       for (const store of defaultStores) {
         try {
-          const { error } = await supabase
+          await supabase
             .from('stores')
             .insert([{
               ...store,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-
-          if (error) {
-            console.error('Error agregando tienda por defecto:', error);
-          }
+            }]);
         } catch (err) {
-          console.error('Error agregando tienda por defecto:', err);
+          console.error(`Error agregando tienda por defecto '${store.id}':`, err);
         }
       }
     }
   } catch (error) {
     console.error('Error inicializando colecciones de Supabase:', error);
+    throw error;
   }
 };

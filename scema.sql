@@ -123,7 +123,9 @@ CREATE TABLE IF NOT EXISTS expenses (
     type VARCHAR(100),
     details TEXT,
     created_by UUID REFERENCES users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status VARCHAR(50) DEFAULT 'pending'
 );
 
 -- Tabla para cierres de caja

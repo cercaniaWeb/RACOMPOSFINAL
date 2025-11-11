@@ -1,39 +1,102 @@
-import React, { useState } from 'react';
-import { Package, Search, Plus, Edit, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Package, Search, Plus, Edit, Trash2, Loader } from 'lucide-react';
 import useAppStore from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import ProductFormModal from '../features/products/ProductFormModal';
 import Modal from '../components/ui/Modal';
+import ConfirmationDialog from '../components/ui/ConfirmationDialog';
+import { getProducts, deleteProduct as deleteProductAPI } from '../utils/supabaseAPI';
+import { useDebounce } from '../hooks/useDebounce'; // Assuming a debounce hook exists
+
+const PAGE_SIZE = 50;
 
 const ProductsPage = () => {
-  const { 
-    products, 
-    categories, 
-    addProduct,
-    updateProduct,
-    deleteProduct
-  } = useAppStore();
+  const categories = useAppStore(state => state.categories);
+  const loadCategories = useAppStore(state => state.loadCategories);
+  
   const navigate = useNavigate();
+
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showProductModal, setShowProductModal] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+
+  const fetchProducts = useCallback(async (isNewSearch = false) => {
+    if (isLoading) return;
+    setIsLoading(true);
+    setError(null);
+
+    const currentPage = isNewSearch ? 1 : page;
+
+    try {
+      const { data, count, error: apiError } = await getProducts({ 
+        page: currentPage, 
+        pageSize: PAGE_SIZE,
+        searchTerm: debouncedSearchTerm
+      });
+
+      if (apiError) throw apiError;
+
+      setProducts(prev => isNewSearch ? data : [...prev, ...data]);
+      setHasMore(currentPage * PAGE_SIZE < count);
+      if (isNewSearch) setPage(2);
+      else setPage(prev => prev + 1);
+
+    } catch (err) {
+      setError('Error al cargar los productos.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page, debouncedSearchTerm, isLoading]);
+
+  useEffect(() => {
+    // Fetch categories if they are not already in the store
+    if (categories.length === 0) {
+      loadCategories();
+    }
+  }, [categories.length, loadCategories]);
+
+  useEffect(() => {
+    // Trigger a new search when debounced search term changes
+    fetchProducts(true);
+  }, [debouncedSearchTerm]);
+
+  const handleDelete = (productId) => {
+    setProductToDelete(productId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (productToDelete) {
+      try {
+        await deleteProductAPI(productToDelete);
+        setProducts(prev => prev.filter(p => p.id !== productToDelete));
+        setShowDeleteConfirm(false);
+        setProductToDelete(null);
+      } catch (err) {
+        console.error("Error deleting product:", err);
+        alert('Error al eliminar el producto.');
+      }
+    }
+  };
   
-  // Filter products based on search term and selected category
   const filteredProducts = products.filter(product => {
-    const matchesSearch = !searchTerm || 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.barcode?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    if (selectedCategory === 'all') return true;
     const category = categories.find(c => c.id === product.categoryId);
-    const matchesCategory = selectedCategory === 'all' || 
-      category?.name === selectedCategory;
-    
-    return matchesSearch && matchesCategory;
+    return category?.name === selectedCategory;
   });
-  
-  // Get unique categories for the filter dropdown
+
   const uniqueCategories = [...new Set(categories.map(c => c.name).filter(Boolean))];
 
   return (
@@ -117,12 +180,18 @@ const ProductsPage = () => {
                       <td className="py-4 px-6 text-[#F0F0F0]">{product.unit || 'unidad'}</td>
                       <td className="py-4 px-6">
                         <div className="flex items-center space-x-2">
-                          <button className="p-2 text-[#a0a0b0] hover:text-[#8A2BE2] hover:bg-[#3a3a4a] rounded-lg transition-colors">
+                          <button 
+                            className="p-2 text-[#a0a0b0] hover:text-[#8A2BE2] hover:bg-[#3a3a4a] rounded-lg transition-colors"
+                            onClick={() => {
+                              setCurrentProduct(product);
+                              setShowProductModal(true);
+                            }}
+                          >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
                             className="p-2 text-[#a0a0b0] hover:text-red-500 hover:bg-[#3a3a4a] rounded-lg transition-colors"
-                            onClick={() => deleteProduct(product.id)}
+                            onClick={() => handleDelete(product.id)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -133,6 +202,23 @@ const ProductsPage = () => {
                 })}
               </tbody>
             </table>
+            {isLoading && (
+              <div className="flex justify-center items-center p-4">
+                <Loader className="animate-spin text-[#8A2BE2]" />
+                <span className="ml-2 text-[#a0a0b0]">Cargando...</span>
+              </div>
+            )}
+            {error && <p className="text-center text-red-500 p-4">{error}</p>}
+            {!isLoading && hasMore && (
+              <div className="p-4 flex justify-center">
+                <button
+                  onClick={() => fetchProducts()}
+                  className="bg-[#8A2BE2] hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+                >
+                  Cargar Más
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -166,9 +252,25 @@ const ProductsPage = () => {
           onClose={() => {
             setShowProductModal(false);
             setCurrentProduct(null);
+            // Refresh data after modal close
+            fetchProducts(true);
           }} 
         />
       </Modal>
+      
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setProductToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Eliminar Producto"
+        message="¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

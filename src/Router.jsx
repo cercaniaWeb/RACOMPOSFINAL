@@ -8,11 +8,13 @@ import ProductsPage from './pages/ProductsPage';
 import ReportsPage from './pages/ReportsPage';
 import UsersPage from './pages/UsersPage';
 import TransfersPage from './pages/TransfersPage';
+import TransferDetailsPage from './pages/TransferDetailsPage';
 import PurchasesPage from './pages/PurchasesPage';
 import SettingsPage from './pages/SettingsPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
+import ReceiptPage from './pages/ReceiptPage';
 
 import ClientsPage from './pages/ClientsPage';
 import ExpensesPage from './pages/ExpensesPage';
@@ -24,6 +26,7 @@ const Router = () => {
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
+        <Route path="/receipt" element={<ReceiptPage />} />
 
         <Route path="/pos/:storeId" element={
           <ProtectedRoute roles={['cajera', 'gerente', 'admin']}>
@@ -45,6 +48,13 @@ const Router = () => {
           <ProtectedRoute roles={['gerente', 'admin']}>
             <Layout activeModule="transfers">
               <TransfersPage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/transfers/:id" element={
+          <ProtectedRoute roles={['gerente', 'admin']}>
+            <Layout activeModule="transfers">
+              <TransferDetailsPage />
             </Layout>
           </ProtectedRoute>
         } />

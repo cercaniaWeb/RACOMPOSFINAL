@@ -12,6 +12,14 @@ CREATE TABLE IF NOT EXISTS products (
     min_stock_threshold JSONB, -- Para almacenar umbrales por tienda
     description TEXT,
     image_url TEXT,
+    brand VARCHAR(255), -- Marca del producto
+    supplier_id VARCHAR(100), -- ID del proveedor
+    weight DECIMAL(10, 3), -- Peso del producto
+    dimensions JSONB, -- Dimensiones {length, width, height}
+    tax_rate DECIMAL(5, 2) DEFAULT 0, -- Tasa de impuesto
+    is_active BOOLEAN DEFAULT true, -- Si el producto está activo
+    notes TEXT, -- Notas adicionales
+    tags JSONB, -- Etiquetas del producto
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -124,7 +132,9 @@ CREATE TABLE IF NOT EXISTS expenses (
     type VARCHAR(100),
     details TEXT,
     created_by UUID REFERENCES users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status VARCHAR(50) DEFAULT 'pending'
 );
 
 -- Tabla para cierres de caja
@@ -149,3 +159,13 @@ CREATE INDEX IF NOT EXISTS idx_sales_store_date ON sales(store_id, date);
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date DESC);
 CREATE INDEX IF NOT EXISTS idx_transfers_status ON transfers(status);
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date DESC);
+
+-- Índices añadidos para optimización de rendimiento
+CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
+CREATE INDEX IF NOT EXISTS idx_products_supplier_id ON products(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_transfers_requested_by ON transfers(requested_by);
+CREATE INDEX IF NOT EXISTS idx_shopping_list_product_id ON shopping_list(product_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_list_created_by ON shopping_list(created_by);
+CREATE INDEX IF NOT EXISTS idx_expenses_created_by ON expenses(created_by);

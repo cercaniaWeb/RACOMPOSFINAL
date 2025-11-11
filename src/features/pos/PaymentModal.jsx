@@ -23,7 +23,7 @@ const PaymentModal = ({ onClose, onPayment, total }) => {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4" data-testid="payment-modal">
       <h2 className="text-xl font-bold mb-4">Procesar Pago</h2>
       <div className="mb-4">
         <p className="text-lg font-semibold">Total a Pagar: ${total.toFixed(2)}</p>
@@ -38,6 +38,7 @@ const PaymentModal = ({ onClose, onPayment, total }) => {
               onChange={(e) => setCash(e.target.value)}
               placeholder="0.00"
               className="flex-grow"
+              data-testid="cash-input"
             />
             <Button onClick={() => setCash(total - card)} className="bg-gray-200 hover:bg-gray-300">Exacto</Button>
           </div>
@@ -49,6 +50,7 @@ const PaymentModal = ({ onClose, onPayment, total }) => {
             value={card}
             onChange={(e) => setCard(e.target.value)}
             placeholder="0.00"
+            data-testid="card-input"
           />
           {card > 0 && (
             <div className="mt-2">
@@ -68,7 +70,7 @@ const PaymentModal = ({ onClose, onPayment, total }) => {
         </div>
       </div>
       <div className="mb-4">
-        <p className={`text-lg font-semibold ${change < 0 ? 'text-red-500' : 'text-green-500'}`}>
+        <p className={`text-lg font-semibold ${change < 0 ? 'text-red-500' : 'text-green-500'}`} data-testid="change-amount">
           Cambio: ${change.toFixed(2)}
         </p>
       </div>
@@ -76,7 +78,7 @@ const PaymentModal = ({ onClose, onPayment, total }) => {
         <Button onClick={onClose} className="bg-gray-300 hover:bg-gray-400">
           Cancelar
         </Button>
-        <Button onClick={handlePayment} className="bg-blue-600 text-white hover:bg-blue-700" disabled={change < 0}>
+        <Button onClick={handlePayment} className="bg-blue-600 text-white hover:bg-blue-700" disabled={change < 0} data-testid="accept-payment-button">
           Aceptar
         </Button>
       </div>
