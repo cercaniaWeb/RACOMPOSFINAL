@@ -9,3 +9,4 @@ dist/
 .genkit/
 test-results/
 playwright-report/
+logs/
