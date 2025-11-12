@@ -917,8 +917,14 @@ const useAppStore = create((set, get) => ({
   },
   // --- LÓGICA DE TRANSFERENCIAS ---
   loadTransfers: async () => {
-    const offlineTransfers = await offlineStorage.getAllData('transfers');
-    set({ transfers: offlineTransfers });
+    try {
+      const offlineTransfers = await offlineStorage.getAllData('transfers');
+      set({ transfers: offlineTransfers });
+    } catch (error) {
+      console.error("Error loading transfers from offline storage:", error);
+      // Initialize with empty array if transfers store doesn't exist yet
+      set({ transfers: [] });
+    }
   },
   createTransfer: async (transferData) => {
     const { currentUser } = get();
@@ -930,10 +936,15 @@ const useAppStore = create((set, get) => ({
       status: 'solicitado',
       history: [{ status: 'solicitado', date: new Date().toISOString(), userId: currentUser.uid }],
     };
-    await offlineStorage.updateData('transfers', newTransfer.id, newTransfer);
-    set(state => ({
-      transfers: [...state.transfers, newTransfer]
-    }));
+    try {
+      await offlineStorage.updateData('transfers', newTransfer.id, newTransfer);
+      set(state => ({
+        transfers: [...state.transfers, newTransfer]
+      }));
+    } catch (error) {
+      console.error("Error creating transfer:", error);
+      throw error;
+    }
   },
   confirmTransferShipment: async (transferId, sentItems) => {
     const { currentUser, transfers } = get();
@@ -953,10 +964,15 @@ const useAppStore = create((set, get) => ({
       history: [...transfer.history, { status: 'enviado', date: new Date().toISOString(), userId: currentUser.uid }],
     };
 
-    await offlineStorage.updateData('transfers', transferId, updatedTransfer);
-    set(state => ({
-      transfers: state.transfers.map(t => t.id === transferId ? updatedTransfer : t)
-    }));
+    try {
+      await offlineStorage.updateData('transfers', transferId, updatedTransfer);
+      set(state => ({
+        transfers: state.transfers.map(t => t.id === transferId ? updatedTransfer : t)
+      }));
+    } catch (error) {
+      console.error("Error confirming transfer shipment:", error);
+      throw error;
+    }
   },
   confirmTransferReception: async (transferId, receivedItems) => {
     const { currentUser, transfers } = get();
@@ -976,10 +992,15 @@ const useAppStore = create((set, get) => ({
       history: [...transfer.history, { status: 'recibido', date: new Date().toISOString(), userId: currentUser.uid }],
     };
 
-    await offlineStorage.updateData('transfers', transferId, updatedTransfer);
-    set(state => ({
-      transfers: state.transfers.map(t => t.id === transferId ? updatedTransfer : t)
-    }));
+    try {
+      await offlineStorage.updateData('transfers', transferId, updatedTransfer);
+      set(state => ({
+        transfers: state.transfers.map(t => t.id === transferId ? updatedTransfer : t)
+      }));
+    } catch (error) {
+      console.error("Error confirming transfer reception:", error);
+      throw error;
+    }
   },
 
   addReminder: (reminderData) => {
