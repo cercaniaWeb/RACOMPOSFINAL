@@ -82,7 +82,7 @@ function formatSalesComparisonResponse(data, queryIntent) {
  * @param {object} queryIntent - Query intent with parameters
  * @returns {string} - Natural language response
  */
-function formatResponse(data, queryIntent) {
+export function formatResponse(data, queryIntent) {
   switch (queryIntent.type) {
     case 'getSalesForCategory':
       return formatSalesResponse(data, queryIntent);
@@ -108,7 +108,3 @@ function formatDate(dateString) {
     year: 'numeric' 
   });
 }
-
-module.exports = {
-  formatResponse
-};

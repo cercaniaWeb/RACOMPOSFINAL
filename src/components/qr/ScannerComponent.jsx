@@ -1,8 +1,18 @@
 import React from 'react';
 import { useZxing } from 'react-zxing';
 import { X } from 'lucide-react';
+import { DecodeHintType } from '@zxing/library';
 
 const ScannerComponent = ({ onScan, onClose }) => {
+  const zxingOptions = {
+    hints: new Map([
+      [DecodeHintType.TRY_HARDER, true],
+      [DecodeHintType.ALSO_INVERTED, true],
+    ]),
+    // You can add other options here if needed, e.g., specific formats
+    // formats: ['CODE_128', 'EAN_13'],
+  };
+
   const { ref } = useZxing({
     onResult(result) {
       onScan(result.getText());
@@ -10,6 +20,7 @@ const ScannerComponent = ({ onScan, onClose }) => {
     onError(error) {
       console.error(error);
     },
+    zxingOptions: zxingOptions,
   });
 
   return (

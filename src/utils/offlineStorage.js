@@ -29,7 +29,7 @@ function isValidKey(key) {
 class OfflineStorage {
   constructor() {
     this.dbName = 'POSOfflineDB';
-    this.version = 3;  // Incremented version to update schema
+    this.version = 4;  // Incremented version to update schema
     this.db = null;
   }
   
@@ -98,6 +98,13 @@ class OfflineStorage {
         
         if (!db.objectStoreNames.contains('pendingSales')) {
           const pendingSalesStore = db.createObjectStore('pendingSales', { keyPath: 'id' });
+        }
+
+        if (!db.objectStoreNames.contains('transfers')) {
+          const transfersStore = db.createObjectStore('transfers', { keyPath: 'id' });
+          transfersStore.createIndex('status', 'status', { unique: false });
+          transfersStore.createIndex('requestedBy', 'requestedBy', { unique: false });
+          transfersStore.createIndex('createdAt', 'createdAt', { unique: false });
         }
 
         console.log(`Database setup complete, version: ${oldVersion} -> ${newVersion}`);

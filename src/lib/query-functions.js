@@ -1,23 +1,7 @@
 // src/lib/query-functions.js
 // Database query functions for POS reports
 
-import { supabase } from '../config/supabase';
-
-// src/lib/query-functions.js
-// Database query functions for POS reports
-
-const { createClient } = require('@supabase/supabase-js');
-
-// Get environment variables
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Faltan credenciales de Supabase. Por favor, define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en tu archivo .env');
-}
-
-// Create Supabase client
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../config/supabase.js';
 
 /**
  * Get sales data for a specific category within a date range
@@ -25,7 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
  * @param {object} dateRange - Object with startDate and endDate
  * @returns {object} - Sales report data
  */
-async function getSalesForCategory(category, dateRange) {
+export async function getSalesForCategory(category, dateRange) {
   try {
     // First, get category ID based on category name
     let categoryQuery = supabase
@@ -47,7 +31,7 @@ async function getSalesForCategory(category, dateRange) {
     let productIds = [];
     if (categories.length > 0) {
       const categoryIds = categories.map(cat => cat.id);
-      
+
       const { data: products, error: productError } = await supabase
         .from('products')
         .select('id')
@@ -128,7 +112,7 @@ async function getSalesForCategory(category, dateRange) {
  * @param {string} location - Optional location filter
  * @returns {object} - Inventory report data
  */
-async function getInventoryReport(category, location) {
+export async function getInventoryReport(category, location) {
   try {
     // Get category ID based on category name
     let categoryQuery = supabase
@@ -217,7 +201,7 @@ async function getInventoryReport(category, location) {
  * @param {object} previousPeriod - Object with startDate and endDate for previous period
  * @returns {object} - Sales comparison data
  */
-async function getSalesComparison(category, currentPeriod, previousPeriod) {
+export async function getSalesComparison(category, currentPeriod, previousPeriod) {
   try {
     // Helper function to get total sales for a period
     const getPeriodSales = async (period) => {
@@ -252,7 +236,7 @@ async function getSalesComparison(category, currentPeriod, previousPeriod) {
         let productIds = [];
         if (categories.length > 0) {
           const categoryIds = categories.map(cat => cat.id);
-          
+
           const { data: products, error: productError } = await supabase
             .from('products')
             .select('id')
@@ -289,7 +273,7 @@ async function getSalesComparison(category, currentPeriod, previousPeriod) {
     const previousPeriodSales = await getPeriodSales(previousPeriod);
 
     // Calculate percentage change
-    const changePercent = previousPeriodSales !== 0 
+    const changePercent = previousPeriodSales !== 0
       ? ((currentPeriodSales - previousPeriodSales) / previousPeriodSales) * 100
       : currentPeriodSales > 0 ? 100 : 0;
 
@@ -308,9 +292,3 @@ async function getSalesComparison(category, currentPeriod, previousPeriod) {
     throw error;
   }
 }
-
-module.exports = {
-  getSalesForCategory,
-  getInventoryReport,
-  getSalesComparison
-};

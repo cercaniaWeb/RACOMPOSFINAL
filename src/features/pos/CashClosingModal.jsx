@@ -6,6 +6,8 @@ import Input from '../../components/ui/Input';
 import Modal from '../../components/ui/Modal';
 import CashClosingTicket from './CashClosingTicket'; // Import the ticket component
 import { useReactToPrint } from 'react-to-print';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const CashClosingModal = ({ onClose }) => {
   const { salesHistory, currentUser, cashClosings, addCashClosing } = useAppStore();
@@ -16,6 +18,21 @@ const CashClosingModal = ({ onClose }) => {
   const handlePrint = useReactToPrint({
     content: () => ticketRef.current,
   });
+
+  const handleSaveTicket = async () => {
+    const element = ticketRef.current;
+    if (element) {
+      const canvas = await html2canvas(element);
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height],
+      });
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`cierre_caja_${new Date(cashClosingData.date).toISOString().slice(0, 10)}_${cashClosingData.cashier}.pdf`);
+    }
+  };
 
   const salesToClose = salesHistory.filter(sale => 
     (sale.userId === currentUser?.id || 
@@ -147,6 +164,12 @@ const CashClosingModal = ({ onClose }) => {
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             Imprimir Ticket
+          </Button>
+          <Button
+            onClick={handleSaveTicket}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            Guardar Ticket
           </Button>
           <Button 
             onClick={() => {

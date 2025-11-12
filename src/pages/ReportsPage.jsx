@@ -172,6 +172,7 @@ const ReportsPage = () => {
         isOpen={showReportChatModal}
         onClose={() => setShowReportChatModal(false)}
         title=""
+        size="6xl"
       >
         <ReportChatModal 
           onClose={() => setShowReportChatModal(false)} 

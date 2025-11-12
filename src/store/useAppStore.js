@@ -28,6 +28,7 @@ import {
   getExpenses,
   addExpense as addExpenseAPI,
   updateExpense as updateExpenseAPI,
+  deleteExpense as deleteExpenseAPI,
   approveExpense as approveExpenseAPI,
   getCashClosings,
   addCashClosing,
@@ -611,6 +612,21 @@ const useAppStore = create((set, get) => ({
       return { success: true, id: updatedExpenseId };
     } catch (error) {
       console.error("Error updating expense:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  deleteExpense: async (expenseId) => {
+    try {
+      // Eliminar el gasto a través de la API
+      await deleteExpenseAPI(expenseId);
+
+      // Recargar gastos para reflejar el cambio
+      await get().loadExpenses();
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting expense:", error);
       return { success: false, error: error.message };
     }
   },

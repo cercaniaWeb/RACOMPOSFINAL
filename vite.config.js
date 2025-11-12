@@ -46,6 +46,12 @@ export default defineConfig({
         target: process.env.VITE_AI_API_URL || 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
+        onProxyReq: (proxyReq, req, res) => {
+          console.log('Proxying request:', req.method, req.url);
+        },
+        onProxyRes: (proxyRes, req, res) => {
+          console.log('Response from target:', proxyRes.statusCode);
+        }
       }
     }
   },

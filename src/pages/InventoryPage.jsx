@@ -11,29 +11,16 @@ import ScannerComponent from '../components/qr/ScannerComponent';
 import useNotification from '../features/notifications/hooks/useNotification';
 
 const InventoryPage = () => {
-  const {
-    products,
-    categories,
-    inventoryBatches,
-    stores,
-    currentUser,
-    addToShoppingList,
-    addInventoryBatch,
-    deleteInventoryBatch,
-    loadStores,
-    loadProducts,
-  } = useAppStore(state => ({
-    products: state.products,
-    categories: state.categories,
-    inventoryBatches: state.inventoryBatches,
-    stores: state.stores,
-    currentUser: state.currentUser,
-    addToShoppingList: state.addToShoppingList,
-    addInventoryBatch: state.addInventoryBatch,
-    deleteInventoryBatch: state.deleteInventoryBatch,
-    loadStores: state.loadStores,
-    loadProducts: state.loadProducts,
-  }));
+  const products = useAppStore(state => state.products);
+  const categories = useAppStore(state => state.categories);
+  const inventoryBatches = useAppStore(state => state.inventoryBatches);
+  const stores = useAppStore(state => state.stores);
+  const currentUser = useAppStore(state => state.currentUser);
+  const addToShoppingList = useAppStore(state => state.addToShoppingList);
+  const addInventoryBatch = useAppStore(state => state.addInventoryBatch);
+  const deleteInventoryBatch = useAppStore(state => state.deleteInventoryBatch);
+  const loadStores = useAppStore(state => state.loadStores);
+  const loadProducts = useAppStore(state => state.loadProducts);
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState(null);
@@ -58,7 +45,7 @@ const InventoryPage = () => {
     if (products.length === 0) {
       loadProducts();
     }
-  }, [stores.length, loadStores, products.length, loadProducts]);
+  }, [stores.length, products.length]); // Load functions are from Zustand and are stable, so we only depend on the data lengths
   
   // Combine product info with inventory batches and store names
   const inventoryByLocation = inventoryBatches.map(batch => {

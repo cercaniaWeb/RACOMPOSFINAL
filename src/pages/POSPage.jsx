@@ -556,11 +556,7 @@ export default function POSPage() {
                 <Button onClick={handlePrint} className="bg-blue-600 text-white hover:bg-blue-700">
                   Imprimir Ticket
                 </Button>
-                <Button onClick={() => {
-                  // Logic to save ticket (e.g., download as PDF/image)
-                  alert('Funcionalidad de guardar ticket no implementada aún.');
-                  setPostPaymentModalOpen(false);
-                }} className="bg-green-600 text-white hover:bg-green-700">
+                <Button onClick={handleSaveTicket} className="bg-green-600 text-white hover:bg-green-700">
                   Guardar Ticket
                 </Button>
                 <Button onClick={() => setPostPaymentModalOpen(false)} className="bg-gray-300 hover:bg-gray-400">

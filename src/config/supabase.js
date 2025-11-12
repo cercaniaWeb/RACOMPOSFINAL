@@ -1,12 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Configura estas variables de entorno en tu archivo .env
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL; // Ej: https://xxxxx.supabase.co
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY; // Tu API anon key
+// For browser environment (frontend), use VITE_* prefixed variables which are made available by Vite
+// For Node.js environment (backend), access via process.env
+const supabaseUrl = typeof window !== 'undefined' 
+  ? import.meta.env.VITE_SUPABASE_URL 
+  : (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
 
-// Verificar que las variables estén definidas
+const supabaseAnonKey = typeof window !== 'undefined' 
+  ? import.meta.env.VITE_SUPABASE_ANON_KEY 
+  : (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY);
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Faltan credenciales de Supabase. Por favor, define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en tu archivo .env');
+  const envType = typeof window !== 'undefined' ? 'frontend (VITE_' : 'backend (';
+  const suffix = typeof window !== 'undefined' ? ')' : ' or VITE_)';
+  console.error(`Faltan credenciales de Supabase. Por favor, define SUPABASE_URL y SUPABASE_ANON_KEY en tu archivo .env (${envType}PREFIXED${suffix})`);
 }
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "concurrently \"npm run dev\" \"npm run server\"",
-    "server": "node server.js",
+    "server": "node server.mjs",
     "build": "vite build",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
@@ -24,6 +24,7 @@
     "@zxing/library": "^0.21.3",
     "chrome-devtools-mcp": "^0.10.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "firebase": "^12.4.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",

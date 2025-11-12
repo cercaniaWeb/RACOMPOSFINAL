@@ -1,12 +1,20 @@
 // src/lib/ai-service.js
 // Service for handling AI interactions with function calling
 
-const OpenAI = require('openai');
+import OpenAI from 'openai';
 
-// Initialize OpenAI API
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // Make sure to set this in your environment variables
-});
+let openai;
+
+// Check if we have the API key before initializing OpenAI
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+} else {
+  console.warn('OPENAI_API_KEY not found. AI functionality will not work.');
+  // Create a mock client for development/testing purposes
+  openai = null;
+}
 
 // Define the functions that the AI can call to interact with our data
 const functions = [
@@ -74,7 +82,46 @@ const functions = [
  * @param {string} query - The natural language query from the user
  * @returns {object} - The parsed intent and parameters
  */
-async function parseNaturalLanguageQuery(query) {
+export async function parseNaturalLanguageQuery(query) {
+  if (!openai) {
+    // Fallback: use simple pattern matching if OpenAI API is not configured
+    const lowerQuery = query.toLowerCase();
+
+    if (lowerQuery.includes('venta') || lowerQuery.includes('ventas')) {
+      // Extract category if mentioned
+      const categoryMatch = lowerQuery.match(/(lacteos|abarrotes|bebidas|vicio)/);
+      const category = categoryMatch ? categoryMatch[1] : null;
+
+      // Return a sales comparison intent as an example
+      return {
+        type: 'getSalesComparison',
+        category: category || 'lacteos',
+        currentPeriod: {
+          startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          endDate: new Date().toISOString().split('T')[0]
+        },
+        previousPeriod: {
+          startDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          endDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        }
+      };
+    }
+
+    // Default return
+    return {
+      type: 'getSalesComparison',
+      category: 'lacteos',
+      currentPeriod: {
+        startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0]
+      },
+      previousPeriod: {
+        startDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        endDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      }
+    };
+  }
+
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo', // or 'gpt-4' if you prefer
@@ -166,7 +213,3 @@ async function parseNaturalLanguageQuery(query) {
     };
   }
 }
-
-module.exports = {
-  parseNaturalLanguageQuery
-};

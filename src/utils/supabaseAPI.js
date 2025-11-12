@@ -938,6 +938,14 @@ export const updateExpense = async (expenseId, expenseData) => {
   // Mapear campos del formulario a los campos correctos de la base de datos
   const mappedExpenseData = { ...expenseData };
 
+  // Eliminar campos que no existen en la tabla expenses
+  if ('createdAt' in mappedExpenseData) {
+    delete mappedExpenseData.createdAt; // No existe en la tabla real
+  }
+  if ('created_at' in mappedExpenseData) {
+    delete mappedExpenseData.created_at; // Ya se establece automáticamente
+  }
+
   // Mapear campos si existen
   if ('storeId' in mappedExpenseData) {
     mappedExpenseData.store_id = mappedExpenseData.storeId;
@@ -969,6 +977,20 @@ export const updateExpense = async (expenseId, expenseData) => {
   }
 
   return data.id;
+};
+
+export const deleteExpense = async (expenseId) => {
+  const { error } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('id', expenseId);
+
+  if (error) {
+    console.error('Error eliminando gasto:', error);
+    throw new Error(error.message);
+  }
+
+  return expenseId;
 };
 
 // Funciones para reportes de ventas
