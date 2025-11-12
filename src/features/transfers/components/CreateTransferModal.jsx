@@ -107,7 +107,10 @@ const CreateTransferModal = ({ onClose }) => {
                 <input
                   type="number"
                   value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseInt(e.target.value, 10) : 1;
+                    setQuantity(isNaN(value) ? 1 : value);
+                  }}
                   min="1"
                   className="w-full bg-[#1D1D27] text-[#F0F0F0] border border-[#3a3a4a] rounded-lg px-3 py-2 focus:border-[#8A2BE2] outline-none"
                 />
